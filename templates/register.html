@@ -1,0 +1,12 @@
+<h2>Register</h2>
+<form method="POST">
+  <input name="username" placeholder="Username"><br>
+  <input name="password" type="password" placeholder="Password"><br>
+  <select name="identity" required>
+    <option value="student">Student</option>
+    <option value="teacher">Teacher</option>
+  </select>
+
+  <button type="submit">Register</button>
+</form>
+<a href="{{ url_for('login') }}">You have an account? Login here</a><br>
