@@ -1,7 +1,10 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 from pymongo import MongoClient
 from werkzeug.security import generate_password_hash, check_password_hash
+from routes import all_blueprints
 import os
+from dotenv import load_dotenv
+load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # session
@@ -10,12 +13,18 @@ mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/gitBrightSpace")
 client = MongoClient(mongo_uri)
 db = client.get_database()
 users = db["users"]
+github_accounts = db["github"]
 
+for bp in all_blueprints:
+    app.register_blueprint(bp)
 
 @app.route('/')
 def home():
     if "username" in session:
-        return render_template("home.html", username=session["username"],identity=session.get("identity", "student"))
+        github_info = github_accounts.find_one({"username": session["username"]})
+        return render_template("home.html", username=session["username"],
+                               identity=session.get("identity", "student"),
+                               github_info=github_info)
     return redirect(url_for('login'))
 
 @app.route('/register', methods=["GET", "POST"])
