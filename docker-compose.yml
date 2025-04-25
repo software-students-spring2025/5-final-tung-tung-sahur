@@ -8,8 +8,10 @@ services:
     volumes:
       - .:/app
     environment:
-      - FLASK_ENV=development
-      - MONGO_URI=mongodb://mongodb:27017/gitBrightSpace
+      - FLASK_ENV=${FLASK_ENV}
+      - MONGO_URI=${MONGO_URI}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
     depends_on:
       - mongodb
     networks:
