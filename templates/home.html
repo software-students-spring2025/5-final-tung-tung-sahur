@@ -1,3 +1,25 @@
 <h2>Hello,{{ username }}</h2>
 <p> You are logged in as a {{ identity }}.</p>
 <a href="{{ url_for('logout') }}">Log OUT</a>
+<br>
+<a href="{{ url_for('github.github_link') }}">Link to your Github</a>
+<div>
+    <h3>Github Info</h3>
+    {% if github_info %}
+        <p>Username: {{ github_info.github_login }}</p>
+        <p>Avatar: <img src="{{ github_info.avatar_url }}" alt="Avatar"></p>
+        <p>Current Linked Repository: 
+            {% if github_info.repo %}
+                <a href="{{ github_info.repo_url }}" target="_blank">{{ github_info.repo }}</a>
+            {% else %}
+                No repository linked.
+            {% endif %}
+        </p>
+    {% else %}
+        <p>No Github info available.</p>
+    {% endif %}
+</div>
+<br>
+<a href="{{ url_for('github.github_unlink') }}">Unlink your Github Account</a>
+<br>
+<a href="{{ url_for('github.github_repo_link') }}">Link your Github Repository</a>
