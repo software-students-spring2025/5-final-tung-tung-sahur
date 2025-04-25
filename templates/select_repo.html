@@ -1,0 +1,26 @@
+<h2>Hello,{{ username }}</h2>
+<p> You are logged in as a {{ identity }}.</p>
+<a href="{{ url_for('logout') }}">Log OUT</a>
+<br>
+<h2>These are your Github Repositories</h2>
+{% if repos %}
+    <ul>
+        {% for repo in repos %}
+            <li>
+                <a href={{ repo.html_url }} target="_blank">{{ repo.full_name }}</a>
+            </li>
+        {% endfor %}
+    </ul>
+{% else %}
+    <p>No repositories available.</p>
+{% endif %}
+
+<h3> Select a repository to link with your account</h3>
+<form method="POST" action="{{ url_for('github.github_repo_link') }}">
+    <select name="repo">
+        {% for repo in repos %}
+            <option value="{{ repo.full_name }}">{{ repo.full_name }}</option>
+        {% endfor %}
+    </select>
+    <input type="submit" value="Link Repository">
+</form>
