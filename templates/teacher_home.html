@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Teacher Homepage{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="jumbotron">
+        <h1 class="display-4">Welcome back, {{ username }}!</h1>
+        <p class="lead">You are logged in as a teacher. Here, you can manage courses, assign homework, view student
+            submissions, and grade them.</p>
+        <hr class="my-4">
+
+        {% if github_info %}
+        <div class="alert alert-success">
+            <h5>Connected GitHub Account</h5>
+            <p><strong>GitHub Username:</strong> {{ github_info.github_login }}</p>
+            {% if github_info.repo %}
+            <p><strong>Selected Repository:</strong> <a href="{{ github_info.repo_url }}" target="_blank">{{
+                    github_info.repo }}</a>
+            </p>
+            {% else %}
+            <p><strong>You haven't selected a repository</strong> - <a
+                    href="{{ url_for('github.github_repo_link') }}">Select Repository</a></p>
+            {% endif %}
+            <a href="{{ url_for('github.github_unlink') }}" class="btn btn-sm btn-outline-danger">Unlink GitHub
+                Account</a>
+        </div>
+        {% else %}
+        <div class="alert alert-warning">
+            <h5>You need to connect your GitHub account to fully utilize the features of this platform. After
+                connecting, you can share course materials and assignment code.</h5>
+            <p>Please connect your GitHub account to access all features.</p>
+            <a href="{{ url_for('github.github_link') }}" class="btn btn-primary">Connect GitHub Account</a>
+        </div>
+        {% endif %}
+
+        <div class="mt-4">
+            <a href="{{ url_for('assignment.create_assignment') }}" class="btn btn-primary btn-lg mr-3">
+                <i class="fas fa-plus-circle"></i> Create New Assignment
+            </a>
+            <a href="{{ url_for('assignment.show_assignments') }}" class="btn btn-info btn-lg">
+                <i class="fas fa-list"></i> View My Assignments
+            </a>
+        </div>
+    </div>
+
+    {% if assignments %}
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3>Recently Created Assignments</h3>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for assignment in assignments[:3] %}
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-header">{{ assignment.title }}</div>
+                        <div class="card-body">
+                            <p>{{ assignment.description|truncate(100) }}</p>
+                            <p><strong>Due Date:</strong> {{ assignment.due_date }}</p>
+                            <p><strong>Submission Count:</strong> {{ assignment.submission_count }}</p>
+                        </div>
+                        <div class="card-footer">
+                            <a href="{{ url_for('assignment.view_assignment', assignment_id=assignment._id) }}"
+                                class="btn btn-sm btn-primary">
+                                View Details
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            {% if assignments|length > 3 %}
+            <div class="text-center mt-3">
+                <a href="{{ url_for('assignment.show_assignments') }}" class="btn btn-outline-primary">View All
+                    Assignments</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
