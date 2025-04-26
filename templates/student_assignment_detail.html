@@ -7,7 +7,7 @@
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="{{ url_for('home') }}">Home</a></li>
-            <li class="breadcrumb-item"><a href="{{ url_for('assignment.show_assignments') }}">Assignment list</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('assignment.show_assignments') }}">Assignment List</a></li>
             <li class="breadcrumb-item active">{{ assignment.title }}</li>
         </ol>
     </nav>
@@ -64,9 +64,9 @@
                         <input type="text" class="form-control" id="github_link" name="github_link" 
                                value="{% if submission %}{{ submission.github_link }}{% elif github_info and github_info.repo_url %}{{ github_info.repo_url }}{% endif %}" required>
                         {% if not github_info %}
-                            <small class="form-text text-danger">Please link to <a href="{{ url_for('github.github_link') }}">Github account first</a></small>
+                            <small class="form-text text-danger">Please <a href="{{ url_for('github.github_link') }}">link to Github account</a> first</small>
                         {% elif not github_info.repo %}
-                            <small class="form-text text-warning">Please select a <a href="{{ url_for('github.github_repo_link') }}">Github repository first</a></small>
+                            <small class="form-text text-warning">Please <a href="{{ url_for('github.github_repo_link') }}">select a Github repository</a> first</small>
                         {% endif %}
                     </div>
                     

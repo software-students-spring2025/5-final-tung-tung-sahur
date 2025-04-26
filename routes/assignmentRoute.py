@@ -77,7 +77,8 @@ def show_assignments():
                               submissions=submission_dict,
                               username=username, 
                               identity=identity,
-                              datetime=datetime)
+                              datetime=datetime,
+                              abs=abs)
 
 # Create new assignment (teachers only)
 @assignment_bp.route('/assignments/create', methods=["GET", "POST"])

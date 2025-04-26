@@ -30,7 +30,7 @@
                         
                         {% if assignment.remaining_days < 0 %}
                             <div class="alert alert-danger">
-                                Overdue {{ abs(assignment.remaining_days) }} 天
+                                Overdue {{ abs(assignment.remaining_days) }} days
                             </div>
                         {% elif assignment.remaining_days == 0 %}
                             <div class="alert alert-warning">
