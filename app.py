@@ -8,7 +8,7 @@ import markdown as md
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)  # session
+app.secret_key = os.getenv("SECRET_KEY")
 
 mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/gitBrightSpace")
 client = MongoClient(mongo_uri)
