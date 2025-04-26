@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Available assignment list{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Available assignment list</h2>
+
+    {% if assignments %}
+        <div class="row">
+            {% for assignment in assignments %}
+            <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>{{ assignment.title }}</span>
+                        {% set assignment_id = assignment._id|string %}
+                        {% if assignment_id in submissions %}
+                            {% if submissions[assignment_id].status == 'graded' %}
+                                <span class="badge badge-success">Graded: {{ submissions[assignment_id].grade }}</span>
+                            {% else %}
+                                <span class="badge badge-warning">Submitted</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="badge badge-danger">To be submitted</span>
+                        {% endif %}
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">{{ assignment.description|truncate(100) }}</p>
+                        <p><strong>Due date:</strong> {{ assignment.due_date }}</p>
+                        
+                        {% if assignment.remaining_days < 0 %}
+                            <div class="alert alert-danger">
+                                Overdue {{ abs(assignment.remaining_days) }} days
+                            </div>
+                        {% elif assignment.remaining_days == 0 %}
+                            <div class="alert alert-warning">
+                                Due today!
+                            </div>
+                        {% elif assignment.remaining_days <= 3 %}
+                            <div class="alert alert-warning">
+                                {{ assignment.remaining_days }} days left
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                {{ assignment.remaining_days }} days left
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <a href="{{ url_for('assignment.view_assignment', assignment_id=assignment._id) }}" class="btn btn-primary">
+                            {% set assignment_id = assignment._id|string %}
+                            {% if assignment_id in submissions %}
+                                View submission
+                            {% else %}
+                                Submit assignment
+                            {% endif %}
+                        </a>
+                        {% if assignment.github_repo_url %}
+                        <a href="{{ url_for('assignment.download_assignment', assignment_id=assignment._id) }}" class="btn btn-outline-primary">
+                            <i class="fas fa-download"></i> Download assignment questions
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            No assignments available at the moment.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

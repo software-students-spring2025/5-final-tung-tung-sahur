@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Student Home{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="jumbotron">
+        <h1 class="display-4">Welcome back，{{ username }}！</h1>
+        <p class="lead">You're logged in as student. You can check your assignments, submissions and feedbacks here. </p>
+        <hr class="my-4">
+        
+        {% if github_info %}
+            <div class="alert alert-success">
+                <h5>Connected to GitHub account</h5>
+                <p><strong>GitHub Username:</strong> {{ github_info.github_login }}</p>
+                {% if github_info.repo %}
+                    <p><strong>Selected repository:</strong> <a href="{{ github_info.repo_url }}" target="_blank">{{ github_info.repo }}</a></p>
+                {% else %}
+                    <p><strong>No repository selected.</strong> - <a href="{{ url_for('github.github_repo_link') }}">Select repository</a></p>
+                {% endif %}
+                <a href="{{ url_for('github.github_unlink') }}" class="btn btn-sm btn-outline-danger">Unlink GitHub account</a>
+            </div>
+        {% else %}
+            <div class="alert alert-warning">
+                <h5>Not linked with GitHub account</h5>
+                <p>You'll need to link with your GitHub account to submit assignments. Link your Github account below.</p>
+                <a href="{{ url_for('github.github_link') }}" class="btn btn-primary">Link GitHub account</a>
+            </div>
+        {% endif %}
+        
+        <div class="mt-4">
+            <a href="{{ url_for('assignment.show_assignments') }}" class="btn btn-primary btn-lg">
+                <i class="fas fa-list"></i> View all assignments
+            </a>
+        </div>
+    </div>
+    
+    {% if assignments %}
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Assignments to do</h3>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group">
+                            {% for assignment in assignments %}
+                                {% set assignment_id = assignment._id|string %}
+                                {% if assignment_id not in submissions %}
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h5>{{ assignment.title }}</h5>
+                                            <p class="mb-1">Due date: {{ assignment.due_date }}</p>
+                                        </div>
+                                        <a href="{{ url_for('assignment.view_assignment', assignment_id=assignment._id) }}" class="btn btn-sm btn-primary">
+                                            submit assignment
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Recently submitted</h3>
+                    </div>
+                    <div class="card-body">
+                        {% if submissions %}
+                            <ul class="list-group">
+                                {% for assignment_id, submission in submissions.items() %}
+                                    {% set assignment = None %}
+                                    {% for a in assignments %}
+                                        {% if a._id|string == assignment_id %}
+                                            {% set assignment = a %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    
+                                    {% if assignment %}
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <h5>{{ assignment.title }}</h5>
+                                                <p class="mb-1">Submitted at: {{ submission.submitted_at }}</p>
+                                                {% if submission.status == 'graded' %}
+                                                    <span class="badge badge-success">Grade: {{ submission.grade }}</span>
+                                                {% else %}
+                                                    <span class="badge badge-warning">Submitted,waiting for grading.</span>
+                                                {% endif %}
+                                            </div>
+                                            <a href="{{ url_for('assignment.view_assignment', assignment_id=assignment._id) }}" class="btn btn-sm btn-info">
+                                                View details
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <div class="alert alert-info">
+                                You have no recent submissions.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
