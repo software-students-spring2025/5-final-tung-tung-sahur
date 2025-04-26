@@ -4,3 +4,4 @@ dnspython
 werkzeug
 python-dotenv
 requests
+markdown
