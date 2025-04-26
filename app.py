@@ -9,7 +9,10 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
-
+app.config.update(
+    SESSION_COOKIE_SECURE=True,   # Ensure this is True in production
+    SESSION_COOKIE_SAMESITE="None"
+)
 mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/gitBrightSpace")
 client = MongoClient(mongo_uri)
 db = client.get_database()
