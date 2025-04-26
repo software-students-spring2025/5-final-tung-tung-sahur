@@ -1,7 +1,40 @@
-<h2>Login</h2>
-<form method="POST">
-  <input name="username" placeholder="Username"><br>
-  <input name="password" type="password" placeholder="Password"><br>
-  <button type="submit">Login</button>
-</form>
-<a href="{{ url_for('register') }}">You have no account? Register here</a><br>
+{% extends "base.html" %}
+
+{% block title %}Login - DarkSpace{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Login</h3>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('login') }}">
+                        <div class="form-group">
+                            <label for="username">Username</label>
+                            <input type="text" class="form-control" id="username" name="username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="password">Password</label>
+                            <input type="password" class="form-control" id="password" name="password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block">Login</button>
+                    </form>
+                </div>
+                <div class="card-footer text-center">
+                    <p class="mb-0">Not Having an Account? <a href="{{ url_for('register') }}">Register</a></p>
+                </div>
+            </div>
+            
+            <div class="text-center mt-4">
+                <h4>DarkSpace - A Bridge Between GitHub and Brightspace</h4>
+                <p class="text-muted">
+                    A Github based Class Management System with Assignment and Content Management, and Email Notification.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

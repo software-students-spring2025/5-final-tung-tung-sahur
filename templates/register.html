@@ -1,12 +1,50 @@
-<h2>Register</h2>
-<form method="POST">
-  <input name="username" placeholder="Username"><br>
-  <input name="password" type="password" placeholder="Password"><br>
-  <select name="identity" required>
-    <option value="student">Student</option>
-    <option value="teacher">Teacher</option>
-  </select>
+{% extends "base.html" %}
 
-  <button type="submit">Register</button>
-</form>
-<a href="{{ url_for('login') }}">You have an account? Login here</a><br>
+{% block title %}Register - DarkSpace{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h3 class="mb-0">Register</h3>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('register') }}">
+                        <div class="form-group">
+                            <label for="username">Username</label>
+                            <input type="text" class="form-control" id="username" name="username" required>
+                            <small class="form-text text-muted">Select A Name You Like</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="password">Password</label>
+                            <input type="password" class="form-control" id="password" name="password" required>
+                            <small class="form-text text-muted">Please Use a Safe Password if Possible</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Identity</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="identity" id="student" value="student" checked>
+                                <label class="form-check-label" for="student">
+                                    Student
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="identity" id="teacher" value="teacher">
+                                <label class="form-check-label" for="teacher">
+                                    Teacher
+                                </label>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-success btn-block">Register</button>
+                    </form>
+                </div>
+                <div class="card-footer text-center">
+                    <p class="mb-0">Already Got an Account? <a href="{{ url_for('login') }}">Login</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

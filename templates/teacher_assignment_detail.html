@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}Assignment Detail - {{ assignment.title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('home') }}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('assignment.show_assignments') }}">Assignments List</a></li>
+            <li class="breadcrumb-item active">{{ assignment.title }}</li>
+        </ol>
+    </nav>
+
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h3>{{ assignment.title }}</h3>
+            <div>
+                <span class="badge badge-primary">Due Date: {{ assignment.due_date }}</span>
+                {% if assignment.github_repo_url %}
+                <a href="{{ assignment.github_repo_url }}" target="_blank" class="btn btn-sm btn-outline-primary ml-2">
+                    <i class="fab fa-github"></i> View GitHub Repository
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card-body">
+            <h5>Description</h5>
+            <div class="mb-4">{{ assignment.description }}</div>
+
+            {% if assignment.github_repo_url %}
+            <div class="alert alert-info">
+                <h5>Reference GitHub Repository</h5>
+                <a href="{{ assignment.github_repo_url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                    <i class="fab fa-github"></i> View GitHub Repository
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h4>Student Submissions ({{ submissions|length }})</h4>
+        </div>
+        <div class="card-body">
+            {% if submissions %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th>Submission Time</th>
+                            <th>GitHub Link</th>
+                            <th>Status</th>
+                            <th>Grade</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for submission in submissions %}
+                        <tr>
+                            <td>{{ submission.student_username }}</td>
+                            <td>{{ submission.submitted_at }}</td>
+                            <td>
+                                <a href="{{ submission.github_link }}" target="_blank">
+                                    <i class="fab fa-github"></i> Code
+                                </a>
+                            </td>
+                            <td>
+                                {% if submission.status == 'graded' %}
+                                <span class="badge badge-success">Graded</span>
+                                {% else %}
+                                <span class="badge badge-warning">Pending</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ submission.grade|default('--') }}</td>
+                            <td>
+                                <a href="{{ url_for('assignment.view_readme', submission_id=submission._id) }}"
+                                    class="btn btn-sm btn-info">
+                                    README
+                                </a>
+                                <button type="button" class="btn btn-sm btn-primary" data-toggle="modal"
+                                    data-target="#gradeModal-{{ submission._id }}">
+                                    {% if submission.status == 'graded' %}Modify Grade{% else %}Grade{% endif %}
+                                </button>
+                            </td>
+                        </tr>
+
+                        <!-- Grade Modal -->
+                        <div class="modal fade" id="gradeModal-{{ submission._id }}" tabindex="-1" role="dialog"
+                            aria-labelledby="gradeModalLabel-{{ submission._id }}" aria-hidden="true">
+                            <div class="modal-dialog" role="document">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="gradeModalLabel-{{ submission._id }}">Grade {{
+                                            submission.student_username }}</h5>
+                                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                            <span aria-hidden="true">&times;</span>
+                                        </button>
+                                    </div>
+                                    <form method="POST"
+                                        action="{{ url_for('assignment.grade_submission', submission_id=submission._id) }}">
+                                        <div class="modal-body">
+                                            <div class="form-group">
+                                                <label for="grade-{{ submission._id }}">Score</label>
+                                                <input type="number" class="form-control"
+                                                    id="grade-{{ submission._id }}" name="grade" min="0" max="100"
+                                                    step="0.1" value="{{ submission.grade|default('') }}" required>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="feedback-{{ submission._id }}">Feedback</label>
+                                                <textarea class="form-control" id="feedback-{{ submission._id }}"
+                                                    name="feedback" rows="5"
+                                                    required>{{ submission.feedback|default('') }}</textarea>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary"
+                                                data-dismiss="modal">Cancel</button>
+                                            <button type="submit" class="btn btn-primary">Submit Grade</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                No student submissions for this assignment.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

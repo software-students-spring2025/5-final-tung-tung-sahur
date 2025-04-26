@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block title %}查看 README{% endblock %}
+
+{% block extra_css %}
+<!-- Markdown CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.1.0/github-markdown.min.css">
+<style>
+    .markdown-body {
+        box-sizing: border-box;
+        min-width: 200px;
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 45px;
+        color: #e6e6e6;
+        background-color: #1e1e1e;
+    }
+
+    .markdown-body h1,
+    .markdown-body h2,
+    .markdown-body h3,
+    .markdown-body h4,
+    .markdown-body h5,
+    .markdown-body h6 {
+        color: #ffffff;
+        border-bottom-color: #333;
+    }
+
+    .markdown-body a {
+        color: #58a6ff;
+    }
+
+    @media (max-width: 767px) {
+        .markdown-body {
+            padding: 15px;
+        }
+    }
+
+    /* Code Block Styles */
+    .markdown-body pre {
+        background-color: #2d2d2d;
+        border-radius: 3px;
+        padding: 16px;
+    }
+
+    .markdown-body code {
+        font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
+        background-color: #2d2d2d;
+        border-radius: 3px;
+        padding: 0.2em 0.4em;
+        color: #ffffff;
+    }
+
+    .markdown-body pre code {
+        background-color: transparent;
+        padding: 0;
+    }
+
+    /* highlight.js dark theme customization */
+    .hljs {
+        display: block;
+        overflow-x: auto;
+        padding: 0.5em;
+        color: #ffffff;
+        background: #2d2d2d;
+    }
+
+    .hljs-keyword,
+    .hljs-selector-tag,
+    .hljs-tag {
+        color: #f92672;
+    }
+
+    .hljs-title,
+    .hljs-section,
+    .hljs-name {
+        color: #a6e22e;
+    }
+
+    .hljs-attr,
+    .hljs-variable,
+    .hljs-template-variable,
+    .hljs-string,
+    .hljs-symbol,
+    .hljs-bullet {
+        color: #e6db74;
+    }
+
+    .hljs-comment,
+    .hljs-quote {
+        color: #75715e;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('home') }}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('assignment.show_assignments') }}">Assignments List</a></li>
+            <li class="breadcrumb-item"><a
+                    href="{{ url_for('assignment.view_assignment', assignment_id=submission.assignment_id) }}">Assignment
+                    Details</a>
+            </li>
+            <li class="breadcrumb-item active">README</li>
+        </ol>
+    </nav>
+
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h3>README Content</h3>
+            <div>
+                {% if identity == 'teacher' %}
+                <span class="badge badge-primary">Student Submission: {{ submission.student_username }}</span>
+                {% endif %}
+                {% if submission.status == 'graded' %}
+                <span class="badge badge-success">Score: {{ submission.grade }}</span>
+                {% else %}
+                <span class="badge badge-warning">Pending Grading</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- div for rendered Markdown -->
+            <div id="markdown-container" class="markdown-body">
+            </div>
+
+            <div id="raw-markdown" style="display: none;">{{ readme_content }}</div>
+
+            {% if not readme_content %}
+            <div class="alert alert-warning">
+                No README content provided.
+            </div>
+            {% endif %}
+
+            <div class="mt-4">
+                {% if identity == 'teacher' %}
+                <a href="{{ submission.github_link }}" target="_blank" class="btn btn-primary">
+                    <i class="fab fa-github"></i> View GitHub Repository
+                </a>
+                <button type="button" class="btn btn-info" data-toggle="modal" data-target="#gradeModal">
+                    {% if submission.status == 'graded' %}Modify Grade{% else %}Grade{% endif %}
+                </button>
+                {% else %}
+                <a href="{{ url_for('assignment.view_assignment', assignment_id=submission.assignment_id) }}"
+                    class="btn btn-primary">
+                    Assignment Details
+                </a>
+                {% endif %}
+                <a href="{{ url_for('assignment.view_assignment', assignment_id=submission.assignment_id) }}"
+                    class="btn btn-secondary">
+                    Assignment Details
+                </a>
+            </div>
+
+            {% if identity == 'teacher' %}
+            <!-- grade Modal -->
+            <div class="modal fade" id="gradeModal" tabindex="-1" role="dialog" aria-labelledby="gradeModalLabel"
+                aria-hidden="true">
+                <div class="modal-dialog" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="gradeModalLabel">为 {{ submission.student_username }} Grade</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <form method="POST"
+                            action="{{ url_for('assignment.grade_submission', submission_id=submission._id) }}">
+                            <div class="modal-body">
+                                <div class="form-group">
+                                    <label for="grade">Grade</label>
+                                    <input type="number" class="form-control" id="grade" name="grade" min="0" max="100"
+                                        step="0.1" value="{{ submission.grade|default('') }}" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="feedback">Feedback</label>
+                                    <textarea class="form-control" id="feedback" name="feedback" rows="5"
+                                        required>{{ submission.feedback|default('') }}</textarea>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-primary">Submit Grade</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<!-- Add code highlighting library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+<!-- Use dark theme -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/monokai-sublime.min.css">
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Configure marked options
+        marked.setOptions({
+            renderer: new marked.Renderer(),
+            highlight: function (code, lang) {
+                const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+                return hljs.highlight(code, { language }).value;
+            },
+            langPrefix: 'hljs language-',
+            pedantic: false,
+            gfm: true,
+            breaks: false,
+            sanitize: false,
+            smartypants: false,
+            xhtml: false
+        });
+
+        // Get raw Markdown content
+        const rawMarkdown = document.getElementById('raw-markdown').textContent;
+
+        // Render Markdown
+        const markdownContainer = document.getElementById('markdown-container');
+        markdownContainer.innerHTML = marked.parse(rawMarkdown);
+    });
+</script>
+{% endblock %}
