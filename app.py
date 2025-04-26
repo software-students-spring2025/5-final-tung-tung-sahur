@@ -4,6 +4,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from routes import all_blueprints
 import os
 from dotenv import load_dotenv
+import markdown as md
 load_dotenv()
 
 app = Flask(__name__)
@@ -17,6 +18,12 @@ github_accounts = db["github"]
 
 for bp in all_blueprints:
     app.register_blueprint(bp)
+
+@app.template_filter('markdown')
+def markdown_filter(text):
+    if text:
+        return md.markdown(text, extensions=['fenced_code', 'tables'])
+    return ""
 
 @app.route('/')
 def home():
