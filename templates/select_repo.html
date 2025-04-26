@@ -1,26 +1,52 @@
-<h2>Hello,{{ username }}</h2>
-<p> You are logged in as a {{ identity }}.</p>
-<a href="{{ url_for('logout') }}">Log OUT</a>
-<br>
-<h2>These are your Github Repositories</h2>
-{% if repos %}
-    <ul>
-        {% for repo in repos %}
-            <li>
-                <a href={{ repo.html_url }} target="_blank">{{ repo.full_name }}</a>
-            </li>
-        {% endfor %}
-    </ul>
-{% else %}
-    <p>No repositories available.</p>
-{% endif %}
+{% extends "base.html" %}
 
-<h3> Select a repository to link with your account</h3>
-<form method="POST" action="{{ url_for('github.github_repo_link') }}">
-    <select name="repo">
-        {% for repo in repos %}
-            <option value="{{ repo.full_name }}">{{ repo.full_name }}</option>
-        {% endfor %}
-    </select>
-    <input type="submit" value="Link Repository">
-</form>
+{% block title %}Select GitHub Repository{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header">
+            <h3>Select GitHub Repository</h3>
+        </div>
+        <div class="card-body">
+            <p>Please select a repository from your GitHub account. Students will use this repository to submit assignments, and instructors will use it to share reference code.</p>
+            
+            {% if repos %}
+                <form method="POST" action="{{ url_for('github.github_repo_link_post') }}">
+                    <div class="form-group">
+                        <label for="repo">Select Repository</label>
+                        <select class="form-control" id="repo" name="repo" required>
+                            <option value="">Please select...</option>
+                            {% for repo in repos %}
+                                <option value="{{ repo.full_name }}">{{ repo.full_name }} ({{ repo.description or 'No description' }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Confirm Selection</button>
+                </form>
+                
+                <div class="mt-4">
+                    <h5>Can't find a suitable repository?</h5>
+                    <p>You can create a new repository on GitHub and then refresh this page.</p>
+                    <a href="https://github.com/new" target="_blank" class="btn btn-outline-primary">
+                        <i class="fab fa-github"></i> Create New Repository on GitHub
+                    </a>
+                    <a href="{{ url_for('github.github_repo_link') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-sync"></i> Refresh List
+                    </a>
+                </div>
+            {% else %}
+                <div class="alert alert-warning">
+                    <p>No GitHub repositories found. Please make sure there are available repositories in your GitHub account.</p>
+                    <a href="https://github.com/new" target="_blank" class="btn btn-primary">
+                        <i class="fab fa-github"></i> Create New Repository on GitHub
+                    </a>
+                    <a href="{{ url_for('github.github_repo_link') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-sync"></i> Refresh List
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
