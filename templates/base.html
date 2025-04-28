@@ -6,11 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}DarkSpace{% endblock %}</title>
 
-    <!-- 本地样式（Bootstrap & Font-Awesome） -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/fa.min.css') }}">
 
-    <!-- 简易暗黑主题覆写 -->
     <style>
         :root {
             --bg-main: #121212;
@@ -122,8 +120,7 @@
     <footer class="footer text-center py-3">
         <span class="text-muted">© 2025 DarkSpace – A Bridge Between GitHub and Brightspace</span>
     </footer>
-
-    <!-- 本地 JS（Bootstrap Bundle 已含 Popper） -->
+    <script src="{{ url_for('static', filename='js/jquery-3.7.1.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
     {% block extra_js %}{% endblock %}
 </body>
