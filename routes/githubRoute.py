@@ -162,3 +162,56 @@ def github_repo_unlink():
     )
     
     return redirect(url_for('home'))
+
+def list_repo_files_recursive(owner, repo, token, path=""):
+    url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github+json"
+    }
+    response = requests.get(url, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"GitHub API error: {response.text}")
+    items = response.json()
+
+    all_files = []
+
+    for item in items:
+        if item["type"] == "file":
+            all_files.append({
+                "name": item["name"],
+                "path": item["path"],
+                "download_url": item["download_url"]
+            })
+        elif item["type"] == "dir":
+            all_files.extend(list_repo_files_recursive(owner, repo, token, item["path"]))
+    
+    return all_files
+
+@github_bp.route('/github/repo/files')
+def github_repo_files():
+    current_username = session.get("username")
+    if not current_username:
+        return "Not logged in", 403
+
+    github_account = github_accounts.find_one({"username": current_username})
+    if not github_account:
+        return "GitHub account not linked", 404
+
+    access_token = github_account["access_token"]
+    selected_repo = github_account["repo"]
+    if not selected_repo:
+        return "No repository linked", 400
+
+    owner, repo = selected_repo.split("/")
+
+    try:
+        files = list_repo_files_recursive(owner, repo, access_token)
+    except Exception as e:
+        return f"Failed to fetch repository files: {str(e)}", 400
+
+    return render_template("repo_files.html",
+                           files=files,
+                           username=session["username"],
+                           identity=session.get("identity", "student"))
+
