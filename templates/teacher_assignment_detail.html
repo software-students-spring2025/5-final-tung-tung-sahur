@@ -16,12 +16,7 @@
         <div class="card-header d-flex justify-content-between align-items-center">
             <h3>{{ assignment.title }}</h3>
             <div>
-                <span class="badge badge-primary">Due Date: {{ assignment.due_date }}</span>
-                {% if assignment.github_repo_url %}
-                <a href="{{ assignment.github_repo_url }}" target="_blank" class="btn btn-sm btn-outline-primary ml-2">
-                    <i class="fab fa-github"></i> View GitHub Repository
-                </a>
-                {% endif %}
+                <span class="badge badge-primary">Due Date: {{ assignment.due_date|datetime_format }}</span>
                 <button type="button" class="btn btn-sm btn-danger ml-2" data-toggle="modal" data-target="#deleteAssignmentModal">
                     <i class="fas fa-trash"></i> Delete Assignment
                 </button>
