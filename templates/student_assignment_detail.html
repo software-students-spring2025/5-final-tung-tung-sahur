@@ -15,7 +15,7 @@
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h3>{{ assignment.title }}</h3>
-            <span class="badge badge-primary">Due date: {{ assignment.due_date }}</span>
+            <span class="badge badge-primary">Due date: {{ assignment.due_date|datetime_format }}</span>
         </div>
         <div class="card-body">
             <h5>Assignment description</h5>
