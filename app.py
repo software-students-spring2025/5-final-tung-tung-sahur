@@ -5,11 +5,15 @@ from routes import all_blueprints
 import os
 from dotenv import load_dotenv
 import markdown as md
+from datetime import datetime
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)  # session
-
+app.secret_key = os.getenv("SECRET_KEY")
+app.config.update(
+    SESSION_COOKIE_SECURE=True,   # Ensure this is True in production
+    SESSION_COOKIE_SAMESITE="None"
+)
 mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/gitBrightSpace")
 client = MongoClient(mongo_uri)
 db = client.get_database()
@@ -24,6 +28,15 @@ def markdown_filter(text):
     if text:
         return md.markdown(text, extensions=['fenced_code', 'tables'])
     return ""
+@app.template_filter('datetime_format')
+def datetime_format(value):
+    if isinstance(value, str):
+        try:
+            dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+            return dt.strftime("%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            return value
+    return value
 
 @app.route('/')
 def home():
@@ -78,3 +91,4 @@ def logout():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=3000)
+

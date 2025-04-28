@@ -28,17 +28,26 @@
                         <p class="card-text">{{ assignment.description|truncate(100) }}</p>
                         <p><strong>Due date:</strong> {{ assignment.due_date }}</p>
                         
-                        {% if assignment.remaining_days < 0 %}
-                            <div class="alert alert-danger">
-                                Overdue {{ abs(assignment.remaining_days) }} days
-                            </div>
+                        {% if assignment.overdue %}
+                        <div class="alert alert-danger">
+                            Overdue {{ abs(assignment.remaining_days) }} days
+                            {% if assignment.remaining_hours > 0 or assignment.remaining_minutes > 0 %}
+                            and {{ assignment.remaining_hours }} hours, {{ assignment.remaining_minutes }} minutes
+                            {% endif %}
+                        </div>
                         {% elif assignment.remaining_days == 0 %}
-                            <div class="alert alert-warning">
-                                Due today!
-                            </div>
+                            {% if assignment.remaining_hours == 0 and assignment.remaining_minutes < 60 %}
+                                <div class="alert alert-danger">
+                                    Due in {{ assignment.remaining_minutes }} minutes!
+                                </div>
+                            {% elif assignment.remaining_hours < 24 %}
+                                <div class="alert alert-warning">
+                                    Due in {{ assignment.remaining_hours }} hours, {{ assignment.remaining_minutes }} minutes
+                                </div>
+                            {% endif %}
                         {% elif assignment.remaining_days <= 3 %}
                             <div class="alert alert-warning">
-                                {{ assignment.remaining_days }} days left
+                                {{ assignment.remaining_days }} days, {{ assignment.remaining_hours }} hours left
                             </div>
                         {% else %}
                             <div class="alert alert-info">

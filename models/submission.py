@@ -59,3 +59,8 @@ class SubmissionModel:
             "graded_at": datetime.now()
         }
         return self.update_submission(submission_id, update_data)
+
+    def delete_by_assignment(self, assignment_id: str) -> int:
+        """Delete all submissions for a specific assignment"""
+        result = self.collection.delete_many({"assignment_id": assignment_id})
+        return result.deleted_count
