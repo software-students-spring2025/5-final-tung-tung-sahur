@@ -26,7 +26,7 @@
                     </div>
                     <div class="card-body">
                         <p class="card-text">{{ assignment.description|truncate(100) }}</p>
-                        <p><strong>Due date:</strong> {{ assignment.due_date|datetime_format }}</p>
+                        <p><strong>Due date:</strong> {{ assignment.due_date }}</p>
                         
                         {% if assignment.overdue %}
                         <div class="alert alert-danger">

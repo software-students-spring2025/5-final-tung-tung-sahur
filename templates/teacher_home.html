@@ -58,7 +58,7 @@
                         <div class="card-header">{{ assignment.title }}</div>
                         <div class="card-body">
                             <p>{{ assignment.description|truncate(100) }}</p>
-                            <p><strong>Due Date:</strong> {{ assignment.due_date|datetime_format }}</p>
+                            <p><strong>Due Date:</strong> {{ assignment.due_date }}</p>
                             <p><strong>Submission Count:</strong> {{ assignment.submission_count }}</p>
                         </div>
                         <div class="card-footer">

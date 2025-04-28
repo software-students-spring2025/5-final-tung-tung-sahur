@@ -16,7 +16,7 @@
         <div class="card-header d-flex justify-content-between align-items-center">
             <h3>{{ assignment.title }}</h3>
             <div>
-                <span class="badge badge-primary">Due Date: {{ assignment.due_date|datetime_format }}</span>
+                <span class="badge badge-primary">Due Date: {{ assignment.due_date }}</span>
                 <button type="button" class="btn btn-sm btn-danger ml-2" data-toggle="modal" data-target="#deleteAssignmentModal">
                     <i class="fas fa-trash"></i> Delete Assignment
                 </button>
