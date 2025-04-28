@@ -141,4 +141,24 @@ def github_repo_link_post():
     )
     return redirect(url_for('home'))
 
+@github_bp.route('/github/repo/unlink')
+def github_repo_unlink():
+    current_username = session.get("username")
+    if not current_username:
+        return "Not logged in", 403
 
+    # Get the GitHub account info
+    github_account = github_accounts.find_one({"username": current_username})
+    if not github_account:
+        return "GitHub account not linked", 404
+    
+    # Unlink the repository but keep the GitHub account linked
+    github_accounts.update_one(
+        {"username": current_username},
+        {"$set": {
+            "repo": None,
+            "repo_url": None
+        }}
+    )
+    
+    return redirect(url_for('home'))

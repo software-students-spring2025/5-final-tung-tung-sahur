@@ -22,6 +22,9 @@
                     <i class="fab fa-github"></i> View GitHub Repository
                 </a>
                 {% endif %}
+                <button type="button" class="btn btn-sm btn-danger ml-2" data-toggle="modal" data-target="#deleteAssignmentModal">
+                    <i class="fas fa-trash"></i> Delete Assignment
+                </button>
             </div>
         </div>
         <div class="card-body">
@@ -133,6 +136,36 @@
                 No student submissions for this assignment.
             </div>
             {% endif %}
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="deleteAssignmentModal" tabindex="-1" role="dialog" aria-labelledby="deleteAssignmentModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteAssignmentModalLabel">Confirm Deletion</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger">
+                    <p><strong>Warning:</strong> You are about to delete this assignment.</p>
+                    <p>This will permanently delete:</p>
+                    <ul>
+                        <li>The assignment "{{ assignment.title }}"</li>
+                        <li>All student submissions for this assignment</li>
+                        <li>All grades and feedback associated with submissions</li>
+                    </ul>
+                    <p>This action cannot be undone. Are you sure you want to proceed?</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <form method="POST" action="{{ url_for('assignment.delete_assignment', assignment_id=assignment._id) }}">
+                    <button type="submit" class="btn btn-danger">Delete Assignment</button>
+                </form>
+            </div>
         </div>
     </div>
 </div>

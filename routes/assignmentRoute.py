@@ -374,3 +374,30 @@ def view_readme(submission_id):
                           submission=submission,
                           username=username,
                           identity=identity)
+
+# Delete an assignment and related submissions (Teacher only)
+@assignment_bp.route('/assignments/<assignment_id>/delete', methods=["POST"])
+def delete_assignment(assignment_id):
+    if not session.get("username") or session.get("identity") != "teacher":
+        return redirect(url_for('home'))
+        
+    # Get assignment to check if the current teacher is the owner
+    assignment = assignment_model.get_assignment(assignment_id)
+    if not assignment:
+        return "Assignment not found", 404
+        
+    # Check if current user is the teacher who created this assignment
+    user = users.find_one({"username": session.get("username")})
+    if str(user["_id"]) != assignment["teacher_id"]:
+        return "Unauthorized - You can only delete your own assignments", 403
+        
+    # Delete all related submissions
+    submission_count = submission_model.delete_by_assignment(assignment_id)
+    
+    # Delete the assignment
+    success = assignment_model.delete_assignment(assignment_id)
+    
+    if success:
+        return redirect(url_for('assignment.show_assignments'))
+    else:
+        return "Failed to delete assignment", 500
