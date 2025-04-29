@@ -645,10 +645,10 @@ def preview_assignment_file(assignment_id, file_path):
     # Handle different file types
     if file_extension in ['.md', '.markdown']:
         # For markdown, we'll render it with GitHub styling
-        # First, get content as text
+        # Get content as text and pass it directly to the template
         content_text = file_content.decode('utf-8')
         
-        # Render shared markdown template with the content
+        # Render the markdown template with the content
         return render_template('preview_markdown.html', 
                               content=content_text,
                               file_name=os.path.basename(file_path),
