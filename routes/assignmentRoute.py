@@ -291,7 +291,7 @@ def submit_assignment(assignment_id):
             readme_content=readme_content
         )
     
-    return redirect(url_for('assignment.view_assignment', assignment_id=assignment_id))
+    return redirect(url_for('assignment.show_assignments', assignment_id=assignment_id))
 
 # Teacher grading and feedback
 @assignment_bp.route('/submissions/<submission_id>/grade', methods=["POST"])
