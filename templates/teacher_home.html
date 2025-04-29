@@ -6,7 +6,8 @@
 <div class="container mt-4">
     <div class="jumbotron">
         <h1 class="display-4">Welcome back, {{ username }}!</h1>
-        <p class="lead">You are logged in as a teacher. Here, you can manage courses, assign homework, share lecture materials, view student
+        <p class="lead">You are logged in as a teacher. Here, you can manage courses, assign homework, share lecture
+            materials, view student
             submissions, and grade them.</p>
         <hr class="my-4">
 
@@ -57,7 +58,7 @@
         {% else %}
         <div class="alert alert-success mt-4 d-flex justify-content-between align-items-center">
             <span>E-mail: {{ user.email }}</span>
-            <a href="{{ url_for('email.email_link') }}" class="btn btn-sm btn-outline-light">
+            <a href="{{ url_for('email.email_link') }}" class="btn btn-outline-dark ms-2">
                 Change
             </a>
         </div>
