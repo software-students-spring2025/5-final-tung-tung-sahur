@@ -8,13 +8,62 @@ from bson.objectid import ObjectId
 from pymongo import MongoClient
 from models.assignment import AssignmentModel
 from models.submission import SubmissionModel
+from email_utils import send_mail
 from dotenv import load_dotenv
 import base64
 import mimetypes
+from email.mime.multipart import MIMEMultipart
+from email.mime.text      import MIMEText
+from email.mime.image     import MIMEImage
+from pathlib              import Path
 # Import shared GitHub functions
 from .githubRoute import get_repo_contents, is_repo_path_file
 
 load_dotenv()
+
+
+def send_receipt_html(to_addr: str, title: str) -> None:
+    """Send HTML receipt with loader.png embedded."""
+    from_addr    = "13601583609@163.com"
+    smtp_server  = "smtp.163.com"
+    smtp_port    = 465
+    login        = from_addr
+    password     = os.getenv("Email_password")
+
+    msg = MIMEMultipart("related")
+    msg["From"] = from_addr
+    msg["To"]   = to_addr
+    msg["Subject"] = f"[DarkSpace] Submission received – {title}"
+
+    # HTML body, reference cid:loader
+    html = f"""
+    <html>
+      <body style="font-family:Arial,Helvetica,sans-serif">
+        <h2>Submission received</h2>
+        <p>Your submission for <strong>{title}</strong> has been stored.</p>
+        <p>You can modify it again before the deadline.</p>
+        <img src="cid:loader" width="64" height="64" alt="loader">
+        <p style="margin-top:25px">— DarkSpace automatic mailer</p>
+      </body>
+    </html>
+    """
+    msg.attach(MIMEText(html, "html"))
+
+    # attach loader.png (put文件在 static/img/loader.png)
+    loader_path = Path(__file__).parent.parent / "static" / "img" / "loader.png"
+    with open(loader_path, "rb") as f:
+        img = MIMEImage(f.read())
+        img.add_header("Content-ID", "<loader>")
+        img.add_header("Content-Disposition", "inline", filename="loader.png")
+        msg.attach(img)
+
+    import smtplib, ssl
+    ctx = ssl.create_default_context()
+    with smtplib.SMTP_SSL(smtp_server, smtp_port, context=ctx) as server:
+        server.login(login, password)
+        server.send_message(msg)
+
+
 
 assignment_bp = Blueprint('assignment', __name__)
 
@@ -193,7 +242,20 @@ def create_assignment():
         github_repo_url=github_repo_url,
         github_repo_path=github_repo_path
     )
-    
+    # ── NEW: fetch all student addresses and mail them
+    students = users.find({"identity": "student", "email": {"$ne": None}})
+    subject  = f"[DarkSpace] New assignment: {title}"
+    body     = (
+        f"Hello student,\n\nA new assignment “{title}” has been posted.\n"
+        f"Due: {due_datetime}\n\n"
+        f"{description}\n\nPlease submit before the deadline."
+    )
+    for stu in students:
+        try:
+            send_mail(stu["email"], subject, body)
+        except Exception as e:
+            print(f"Mail to {stu['email']} failed: {e}")
+        
     return redirect(url_for('assignment.show_assignments'))
 
 # View single assignment details
@@ -583,14 +645,15 @@ def preview_assignment_file(assignment_id, file_path):
     # Handle different file types
     if file_extension in ['.md', '.markdown']:
         # For markdown, we'll render it with GitHub styling
-        # First, get content as text
+        # Get content as text and pass it directly to the template
         content_text = file_content.decode('utf-8')
         
-        # Render markdown template with the content
+        # Render the markdown template with the content
         return render_template('preview_markdown.html', 
                               content=content_text,
                               file_name=os.path.basename(file_path),
-                              assignment=assignment,
+                              item=assignment,
+                              item_type='assignment',
                               username=session.get("username"),
                               identity=session.get("identity"))
                               
@@ -602,7 +665,8 @@ def preview_assignment_file(assignment_id, file_path):
                               content=content_text,
                               file_name=os.path.basename(file_path),
                               language=file_extension[1:],  # Remove the dot from extension
-                              assignment=assignment,
+                              item=assignment,
+                              item_type='assignment',
                               username=session.get("username"),
                               identity=session.get("identity"))
                               
@@ -615,7 +679,8 @@ def preview_assignment_file(assignment_id, file_path):
         return render_template('preview_pdf.html',
                               pdf_data=pdf_data_uri,
                               file_name=os.path.basename(file_path),
-                              assignment=assignment,
+                              item=assignment,
+                              item_type='assignment',
                               username=session.get("username"),
                               identity=session.get("identity"))
     else:
@@ -909,6 +974,11 @@ def submit_markdown_assignment(assignment_id):
                 github_link=file_url,
                 readme_content=readme_content
             )
+
+        # send receipt mail -----------------------------------------
+        if student.get("email"):
+            send_receipt_html(student["email"], assignment["title"])
+        # -----------------------------------------------------------
         
         return redirect(url_for('assignment.view_assignment', assignment_id=assignment_id))
         

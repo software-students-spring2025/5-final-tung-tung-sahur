@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Lecture Materials{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Available Lecture Materials</h2>
+
+    {% if content_items %}
+        <div class="row">
+            {% for content in content_items %}
+            <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>{{ content.title }}</span>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">{{ content.description|truncate(100) }}</p>
+                        <p><strong>Created at:</strong> {{ content.created_at }}</p>
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <a href="{{ url_for('content.view_content', content_id=content._id) }}" class="btn btn-primary">
+                            View Material
+                        </a>
+                        {% if content.github_repo_url %}
+                        <div class="btn-group mt-2 w-100">
+                            <a href="{{ url_for('content.browse_content_files', content_id=content._id) }}" class="btn btn-outline-info">
+                                <i class="fas fa-folder-open"></i> Browse Files
+                            </a>
+                            <a href="{{ url_for('content.download_content', content_id=content._id) }}" class="btn btn-outline-primary">
+                                <i class="fas fa-download"></i> Download Files
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            No lecture materials available at the moment.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

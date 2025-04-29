@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Bind e-mail{% endblock %}
+
+{% block content %}
+<div class="container mt-5" style="max-width:480px">
+    <h3>Bind your e-mail</h3>
+
+    <form method="POST">
+        <div class="form-group mb-3">
+            <label for="email">E-mail address</label>
+            <input type="email" class="form-control" id="email" name="email" required autofocus
+                value="{{ current_email or '' }}">
+        </div>
+
+        <!-- blue btn -->
+        <button class="btn btn-primary">Save</button>
+
+        {% if current_email %}
+        <!-- red btn -->
+        <a href="{{ url_for('email.email_unlink') }}" class="btn btn-danger ms-2">
+            Unlink
+        </a>
+        {% endif %}
+    </form>
+</div>
+{% endblock %}
