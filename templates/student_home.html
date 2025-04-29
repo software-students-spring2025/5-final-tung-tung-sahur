@@ -63,77 +63,7 @@
 
     {% if assignments %}
     <div class="row mt-4">
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h3>Assignments to do</h3>
-                </div>
-                <div class="card-body">
-                    <ul class="list-group">
-                        {% for assignment in assignments %}
-                        {% set assignment_id = assignment._id|string %}
-                        {% if assignment_id not in submissions %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <div>
-                                <h5>{{ assignment.title }}</h5>
-                                <p class="mb-1">Due date: {{ assignment.due_date }}</p>
-                            </div>
-                            <a href="{{ url_for('assignment.view_assignment', assignment_id=assignment._id) }}"
-                                class="btn btn-sm btn-primary">
-                                submit assignment
-                            </a>
-                        </li>
-                        {% endif %}
-                        {% endfor %}
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h3>Recently submitted</h3>
-                </div>
-                <div class="card-body">
-                    {% if submissions %}
-                    <ul class="list-group">
-                        {% for assignment_id, submission in submissions.items() %}
-                        {% set assignment = None %}
-                        {% for a in assignments %}
-                        {% if a._id|string == assignment_id %}
-                        {% set assignment = a %}
-                        {% endif %}
-                        {% endfor %}
-
-                        {% if assignment %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <div>
-                                <h5>{{ assignment.title }}</h5>
-                                <p class="mb-1">Submitted at: {{ submission.submitted_at }}</p>
-                                {% if submission.status == 'graded' %}
-                                <span class="badge badge-success">Grade: {{ submission.grade }}</span>
-                                {% else %}
-                                <span class="badge badge-warning">Submitted,waiting for grading.</span>
-                                {% endif %}
-                            </div>
-                            <a href="{{ url_for('assignment.view_assignment', assignment_id=assignment._id) }}"
-                                class="btn btn-sm btn-info">
-                                View details
-                            </a>
-                        </li>
-                        {% endif %}
-                        {% endfor %}
-                    </ul>
-                    {% else %}
-                    <div class="alert alert-info">
-                        You have no recent submissions.
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
+    </div>  
 </div>
 {% endif %}
 {% endblock %}
