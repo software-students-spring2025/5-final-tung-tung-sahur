@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 from pymongo import MongoClient
 from werkzeug.security import generate_password_hash, check_password_hash
 from routes import all_blueprints
@@ -185,10 +185,19 @@ def register():
         username = request.form['username']
         password = request.form['password']
         identity = request.form['identity']  
+        if identity == "teacher":
+            input_code = request.form['input_code']
 
         existing_user = users.find_one({"username": username})
         if existing_user:
-            return "User already exists"
+            flash("User already exists", "danger")
+            return redirect(url_for('register'))
+        # Teacher need special permission
+        if identity == "teacher":
+            if input_code != os.getenv("TEACHER_INVITE_CODE"):
+                flash("Invalid teacher invite code", "danger")
+                return redirect(url_for('register'))
+
 
         users.insert_one({
             "username": username,
