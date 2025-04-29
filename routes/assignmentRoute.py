@@ -648,11 +648,12 @@ def preview_assignment_file(assignment_id, file_path):
         # First, get content as text
         content_text = file_content.decode('utf-8')
         
-        # Render markdown template with the content
+        # Render shared markdown template with the content
         return render_template('preview_markdown.html', 
                               content=content_text,
                               file_name=os.path.basename(file_path),
-                              assignment=assignment,
+                              item=assignment,
+                              item_type='assignment',
                               username=session.get("username"),
                               identity=session.get("identity"))
                               
@@ -664,7 +665,8 @@ def preview_assignment_file(assignment_id, file_path):
                               content=content_text,
                               file_name=os.path.basename(file_path),
                               language=file_extension[1:],  # Remove the dot from extension
-                              assignment=assignment,
+                              item=assignment,
+                              item_type='assignment',
                               username=session.get("username"),
                               identity=session.get("identity"))
                               
@@ -677,7 +679,8 @@ def preview_assignment_file(assignment_id, file_path):
         return render_template('preview_pdf.html',
                               pdf_data=pdf_data_uri,
                               file_name=os.path.basename(file_path),
-                              assignment=assignment,
+                              item=assignment,
+                              item_type='assignment',
                               username=session.get("username"),
                               identity=session.get("identity"))
     else:
