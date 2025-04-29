@@ -2,12 +2,117 @@
 
 {% block title %}Create new assignment{% endblock %}
 
+{% block extra_css %}
+<style>
+    #repoExplorer {
+        max-height: 400px;
+        overflow-y: auto;
+        border-radius: 0.25rem;
+        border: 1px solid var(--card-border);
+        background-color: var(--card);
+    }
+    
+    .repo-browser-header {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--card-border);
+        background-color: rgba(0, 0, 0, 0.2);
+    }
+    
+    .repo-breadcrumb {
+        margin-bottom: 0;
+        background-color: transparent;
+    }
+    
+    .repo-breadcrumb .breadcrumb-item a {
+        color: var(--accent);
+        text-decoration: none;
+    }
+    
+    .repo-breadcrumb .breadcrumb-item.active {
+        color: var(--fg-main);
+    }
+    
+    .file-browser-item {
+        display: flex;
+        align-items: center;
+        padding: 0.5rem 1rem;
+        border-bottom: 1px solid var(--card-border);
+        color: var(--fg-main);
+        text-decoration: none;
+        transition: background-color 0.15s ease;
+    }
+    
+    .file-browser-item:last-child {
+        border-bottom: none;
+    }
+    
+    .file-browser-item:hover {
+        background-color: rgba(13, 110, 253, 0.1);
+    }
+    
+    .file-browser-item.selected-path {
+        background-color: rgba(13, 110, 253, 0.2);
+    }
+    
+    .file-icon {
+        margin-right: 0.75rem;
+        font-size: 1.2rem;
+    }
+    
+    .file-name {
+        flex-grow: 1;
+    }
+    
+    .file-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .file-action-btn {
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        font-size: 0.8rem;
+        opacity: 0.7;
+        transition: opacity 0.15s ease;
+    }
+    
+    .file-action-btn:hover {
+        opacity: 1;
+    }
+    
+    .file-size {
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 0.8rem;
+        margin-left: 0.5rem;
+    }
+    
+    .loading-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 2rem;
+    }
+    
+    .selection-info {
+        margin-top: 1rem;
+        padding: 0.75rem 1rem;
+        border-radius: 0.25rem;
+        background-color: rgba(25, 135, 84, 0.1);
+        border: 1px solid rgba(25, 135, 84, 0.2);
+    }
+    
+    .selection-info strong {
+        color: rgba(25, 135, 84, 0.8);
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="{{ url_for('home') }}">Home</a></li>
-            <li class="breadcrumb-item"><a href="{{ url_for('assignment.show_assignments') }}">Assignmnet List</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('assignment.show_assignments') }}">Assignment List</a></li>
             <li class="breadcrumb-item active">Create new assignment</li>
         </ol>
     </nav>
@@ -17,19 +122,19 @@
             <h3>Create new assignment</h3>
         </div>
         <div class="card-body">
-            <form method="POST" action="{{ url_for('assignment.create_assignment') }}">
-                <div class="form-group">
+            <form id="assignmentForm" method="POST" action="{{ url_for('assignment.create_assignment') }}">
+                <div class="form-group mb-3">
                     <label for="title">Title</label>
                     <input type="text" class="form-control" id="title" name="title" required>
                 </div>
                 
-                <div class="form-group">
+                <div class="form-group mb-3">
                     <label for="description">Description</label>
                     <textarea class="form-control" id="description" name="description" rows="5" required></textarea>
                     <small class="form-text text-muted">Type instructions here.</small>
                 </div>
                 
-                <div class="form-group">
+                <div class="form-group mb-3">
                     <label for="due_date">Due date and time</label>
                     <div class="row">
                         <div class="col-md-6">
@@ -42,25 +147,293 @@
                     <small class="form-text text-muted">Students must submit before this exact time</small>
                 </div>
                 
-                <div class="form-group">
-                    <label for="github_repo_url">GitHub repository (optional)</label>
-                    {% if github_info and github_info.repo_url %}
-                        <input type="text" class="form-control" id="github_repo_url" name="github_repo_url" value="{{ github_info.repo_url }}">
-                    {% else %}
-                        <input type="text" class="form-control" id="github_repo_url" name="github_repo_url" placeholder="https://github.com/username/repo">
-                    {% endif %}
-                    
-                    {% if not github_info %}
-                        <small class="form-text text-danger">Please <a href="{{ url_for('github.github_link') }}">link a GitHub account</a> first</small>
-                    {% elif not github_info.repo %}
-                        <small class="form-text text-warning">Please <a href="{{ url_for('github.github_repo_link') }}">select a GitHub repository</a> first.</small>
-                    {% endif %}
-                    <small class="form-text text-muted">If provided, students can download all content from this repository as questions.</small>
+                {% if not github_info %}
+                <div class="alert alert-warning" role="alert">
+                    You need to <a href="{{ url_for('github.github_link') }}">link your GitHub account</a> first before creating assignments.
                 </div>
+                {% elif not github_info.repo %}
+                <div class="alert alert-warning" role="alert">
+                    You need to <a href="{{ url_for('github.github_repo_link') }}">link a GitHub repository</a> first before creating assignments.
+                </div>
+                {% else %}
+                <div class="form-group mb-3">
+                    <label>Select Files from Repository: <strong>{{ github_info.repo }}</strong></label>
+                    
+                    <input type="hidden" id="github_repo_path" name="github_repo_path">
+                    <input type="hidden" id="selected_type" name="selected_type">
+                    
+                    <div id="repoExplorer">
+                        <div class="repo-browser-header">
+                            <ol class="breadcrumb repo-breadcrumb mb-0" id="repoBreadcrumb">
+                                <li class="breadcrumb-item"><a href="#" data-path="">Repository Root</a></li>
+                            </ol>
+                        </div>
+                        
+                        <div id="loading" class="loading-container d-none">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                        
+                        <div id="fileList">
+                            <!-- Repository contents will be loaded here -->
+                        </div>
+                        
+                        <div id="selection" class="d-none">
+                            <div class="selection-info">
+                                <strong>Selected:</strong> <span id="selectedPath"></span>
+                                <span id="selectedType" class="badge bg-info ms-2"></span>
+                                <button type="button" id="clearSelection" class="btn btn-sm btn-outline-secondary float-end">Clear</button>
+                            </div>
+                        </div>
+                    </div>
+                    <small class="form-text text-muted mt-2">Select a file or folder from your repository for students to access.</small>
+                </div>
+                {% endif %}
                 
                 <button type="submit" class="btn btn-primary">Create assignment</button>
             </form>
         </div>
     </div>
 </div>
+
+{% if github_info and github_info.repo %}
+{% block extra_js %}
+<script>
+    // Current path in repository
+    let currentPath = "";
+    
+    // Function to load repository contents
+    function loadRepoContents(path = "") {
+        // Show loading indicator
+        document.getElementById('loading').classList.remove('d-none');
+        document.getElementById('fileList').innerHTML = '';
+        
+        // Fetch repository contents from API
+        fetch("{{ url_for('assignment.list_repo_contents') }}?path=" + encodeURIComponent(path))
+            .then(function(response) {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(function(data) {
+                // Hide loading indicator
+                document.getElementById('loading').classList.add('d-none');
+                
+                // Update file list
+                const fileList = document.getElementById('fileList');
+                fileList.innerHTML = ''; // Clear existing content
+                
+                // Add "Go up" item if not at root
+                if (path) {
+                    const upItem = document.createElement('div');
+                    upItem.className = 'file-browser-item';
+                    upItem.innerHTML = `
+                        <span class="file-icon"><i class="fas fa-arrow-up"></i></span>
+                        <span class="file-name">..</span>
+                    `;
+                    upItem.addEventListener('click', function() {
+                        // Go up one directory
+                        const pathParts = currentPath.split('/');
+                        pathParts.pop();
+                        const parentPath = pathParts.join('/');
+                        navigateTo(parentPath);
+                    });
+                    fileList.appendChild(upItem);
+                }
+                
+                // Add each item
+                data.forEach(function(item) {
+                    const listItem = document.createElement('div');
+                    listItem.className = 'file-browser-item';
+                    listItem.setAttribute('data-path', item.path);
+                    listItem.setAttribute('data-type', item.type);
+                    
+                    // Icon based on type
+                    let iconClass = item.type === 'dir' ? 'fa-folder' : 'fa-file-code';
+                    
+                    // Create file/folder item with actions - Changed select button to primary color
+                    listItem.innerHTML = `
+                        <span class="file-icon"><i class="fas ${iconClass}"></i></span>
+                        <span class="file-name">${item.name}</span>
+                        ${item.type === 'file' && item.size ? '<span class="file-size">' + formatFileSize(item.size) + '</span>' : ''}
+                        <div class="file-actions">
+                            ${item.type === 'dir' ? '<button type="button" class="file-action-btn btn btn-sm btn-outline-primary select-dir-btn">Select Folder</button>' : ''}
+                            <button type="button" class="file-action-btn btn btn-sm btn-${item.type === 'dir' ? 'primary' : 'primary'} ${item.type === 'dir' ? 'open-dir-btn' : 'select-file-btn'}">
+                                ${item.type === 'dir' ? 'Open' : 'Select'}
+                            </button>
+                        </div>
+                    `;
+                    
+                    // Add event listeners for different actions
+                    // 1. Navigate to directory on open button click
+                    if (item.type === 'dir') {
+                        listItem.querySelector('.open-dir-btn').addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            navigateTo(item.path);
+                        });
+                        
+                        // 2. Select directory on select button click
+                        listItem.querySelector('.select-dir-btn').addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            selectItem(item.path, 'directory');
+                        });
+                    } else {
+                        // 3. Select file on select button click
+                        listItem.querySelector('.select-file-btn').addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            selectItem(item.path, 'file');
+                        });
+                    }
+                    
+                    // 4. Row click for default action (open dir / select file)
+                    listItem.addEventListener('click', function(e) {
+                        if (item.type === 'dir') {
+                            navigateTo(item.path);
+                        } else {
+                            selectItem(item.path, 'file');
+                        }
+                    });
+                    
+                    fileList.appendChild(listItem);
+                });
+                
+                // If no items found
+                if (data.length === 0 && !path) {
+                    fileList.innerHTML = '<div class="p-4 text-center text-muted">Repository is empty.</div>';
+                } else if (data.length === 0) {
+                    fileList.innerHTML = '<div class="p-4 text-center text-muted">This folder is empty.</div>';
+                }
+            })
+            .catch(function(error) {
+                // Hide loading indicator
+                document.getElementById('loading').classList.add('d-none');
+                
+                // Show error
+                const fileList = document.getElementById('fileList');
+                fileList.innerHTML = '<div class="p-4 text-center text-danger">Error loading repository contents: ' + error.message + '</div>';
+            });
+    }
+    
+    // Function to navigate to a path
+    function navigateTo(path) {
+        currentPath = path;
+        
+        // Update breadcrumb
+        const breadcrumb = document.getElementById('repoBreadcrumb');
+        breadcrumb.innerHTML = '<li class="breadcrumb-item"><a href="#" data-path="">Repository Root</a></li>';
+        
+        if (path) {
+            const parts = path.split('/');
+            let currentPart = '';
+            
+            for (let i = 0; i < parts.length; i++) {
+                const part = parts[i];
+                currentPart += (i > 0 ? '/' : '') + part;
+                const isLast = i === parts.length - 1;
+                
+                const li = document.createElement('li');
+                li.className = 'breadcrumb-item' + (isLast ? ' active' : '');
+                
+                if (isLast) {
+                    li.textContent = part;
+                } else {
+                    const a = document.createElement('a');
+                    a.href = '#';
+                    a.textContent = part;
+                    a.setAttribute('data-path', currentPart);
+                    a.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        navigateTo(this.getAttribute('data-path'));
+                    });
+                    li.appendChild(a);
+                }
+                
+                breadcrumb.appendChild(li);
+            }
+        }
+        
+        // Load new contents
+        loadRepoContents(path);
+    }
+    
+    // Function to select an item
+    function selectItem(path, type) {
+        // Update selection UI
+        document.getElementById('selectedPath').textContent = path;
+        document.getElementById('selectedType').textContent = type === 'directory' ? 'Folder' : 'File';
+        document.getElementById('selection').classList.remove('d-none');
+        
+        // Set form values
+        document.getElementById('github_repo_path').value = path;
+        document.getElementById('selected_type').value = type;
+        
+        // Clear any previous selections
+        const items = document.querySelectorAll('.file-browser-item');
+        for (let i = 0; i < items.length; i++) {
+            items[i].classList.remove('selected-path');
+        }
+        
+        // Highlight the selected item
+        const selectedItem = document.querySelector(`.file-browser-item[data-path="${path}"]`);
+        if (selectedItem) {
+            selectedItem.classList.add('selected-path');
+        }
+    }
+    
+    // Function to format file size
+    function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+        else if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
+        else return (bytes / 1073741824).toFixed(1) + ' GB';
+    }
+    
+    // Initial setup
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add root breadcrumb click handler
+        const rootLink = document.querySelector('[data-path=""]');
+        if (rootLink) {
+            rootLink.addEventListener('click', function(e) {
+                e.preventDefault();
+                navigateTo('');
+            });
+        } else {
+            // Create root link if not present
+            const breadcrumb = document.getElementById('repoBreadcrumb');
+            breadcrumb.innerHTML = '<li class="breadcrumb-item"><a href="#" data-path="">Repository Root</a></li>';
+            document.querySelector('[data-path=""]').addEventListener('click', function(e) {
+                e.preventDefault();
+                navigateTo('');
+            });
+        }
+        
+        // Clear selection button
+        document.getElementById('clearSelection').addEventListener('click', function() {
+            document.getElementById('selection').classList.add('d-none');
+            document.getElementById('github_repo_path').value = '';
+            document.getElementById('selected_type').value = '';
+            
+            // Clear selection highlighting
+            const items = document.querySelectorAll('.file-browser-item');
+            for (let i = 0; i < items.length; i++) {
+                items[i].classList.remove('selected-path');
+            }
+        });
+        
+        // Load repository root contents
+        loadRepoContents();
+        
+        // Form validation
+        document.getElementById('assignmentForm').addEventListener('submit', function(e) {
+            if (!document.getElementById('github_repo_path').value) {
+                e.preventDefault();
+                alert('Please select a file or folder from the repository');
+            }
+        });
+    });
+</script>
+{% endblock %}
+{% endif %}
 {% endblock %}

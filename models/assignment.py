@@ -8,7 +8,7 @@ class AssignmentModel:
         self.collection = collection
 
     def create_assignment(self, teacher_id: str, title: str, description: str, 
-                         due_date: str, github_repo_url: str = None) -> str:
+                         due_date: str, github_repo_url: str = None, github_repo_path: str = None) -> str:
         """Create a new assignment"""
         assignment = {
             "teacher_id": teacher_id,
@@ -16,6 +16,7 @@ class AssignmentModel:
             "description": description,
             "due_date": due_date,
             "github_repo_url": github_repo_url,
+            "github_repo_path": github_repo_path,  # Added new field for repository path
             "created_at": datetime.now()
         }
         result = self.collection.insert_one(assignment)
