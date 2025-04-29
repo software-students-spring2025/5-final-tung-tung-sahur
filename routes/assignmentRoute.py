@@ -86,6 +86,65 @@ def show_assignments():
                               datetime=datetime,
                               abs=abs)
 
+# Add a new route to list repository contents for assignment creation
+@assignment_bp.route('/assignments/list_repo_contents')
+def list_repo_contents():
+    if not session.get("username") or session.get("identity") != "teacher":
+        return jsonify({"error": "Unauthorized"}), 403
+        
+    # Get current teacher's GitHub account information
+    github_info = github_accounts.find_one({"username": session.get("username")})
+    if not github_info or not github_info.get("repo"):
+        return jsonify({"error": "No GitHub repository linked"}), 400
+    
+    access_token = github_info["access_token"]
+    repo_path = github_info["repo"]  # Format: "username/repo"
+    
+    # Parse repository information
+    owner, repo = repo_path.split("/")
+    
+    # Get optional path parameter from request
+    path = request.args.get("path", "")
+    
+    # Build API URL
+    contents_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
+    
+    # Request GitHub API
+    headers = {
+        "Authorization": f"token {access_token}",
+        "Accept": "application/vnd.github+json"
+    }
+    
+    response = requests.get(contents_url, headers=headers)
+    
+    if response.status_code != 200:
+        return jsonify({"error": f"GitHub API error: {response.text}"}), 400
+    
+    # Parse response
+    items = response.json()
+    
+    # Handle single file response case
+    if not isinstance(items, list):
+        items = [items]
+    
+    # Format return data
+    contents = []
+    for item in items:
+        content_item = {
+            "name": item["name"],
+            "path": item["path"],
+            "type": item["type"],
+            "size": item.get("size", 0),
+            "download_url": item.get("download_url", ""),
+            "url": item["url"]
+        }
+        contents.append(content_item)
+    
+    # Sort: directories first, then by name
+    contents.sort(key=lambda x: (0 if x["type"] == "dir" else 1, x["name"]))
+    
+    return jsonify(contents)
+
 # Create new assignment (teachers only)
 @assignment_bp.route('/assignments/create', methods=["GET", "POST"])
 def create_assignment():
@@ -105,7 +164,7 @@ def create_assignment():
     description = request.form.get("description")
     due_date = request.form.get("due_date")
     due_time = request.form.get("due_time")
-    github_repo_url = request.form.get("github_repo_url")
+    github_repo_path = request.form.get("github_repo_path")
     
     if not title or not description or not due_date or not due_time:
         return "Missing required fields", 400
@@ -118,13 +177,28 @@ def create_assignment():
     if not user:
         return "User not found", 404
     
+    # Get teacher's GitHub information
+    github_info = github_accounts.find_one({"username": session.get("username")})
+    
+    # Build the GitHub repo URL
+    github_repo_url = None
+    if github_info and github_info.get("repo"):
+        if github_repo_path:
+            # Create URL with the selected path
+            repo_name = github_info["repo"]
+            github_repo_url = f"https://github.com/{repo_name}/tree/main/{github_repo_path}"
+        elif github_info.get("repo_url"):
+            # Use the default repository URL
+            github_repo_url = github_info.get("repo_url")
+    
     # Create new assignment with combined datetime
     assignment_id = assignment_model.create_assignment(
         teacher_id=str(user["_id"]),
         title=title,
         description=description,
         due_date=due_datetime,
-        github_repo_url=github_repo_url
+        github_repo_url=github_repo_url,
+        github_repo_path=github_repo_path
     )
     
     return redirect(url_for('assignment.show_assignments'))
@@ -266,8 +340,10 @@ def download_assignment(assignment_id):
     if not assignment:
         return "Assignment not found", 404
         
-    # Get GitHub repository URL
+    # Get GitHub repository URL and path
     github_repo_url = assignment.get("github_repo_url")
+    github_repo_path = assignment.get("github_repo_path", "")
+    
     if not github_repo_url:
         return "No GitHub repository associated with this assignment", 400
         
@@ -283,39 +359,71 @@ def download_assignment(assignment_id):
         
     access_token = github_info["access_token"]
     
-    # Parse GitHub repository information
-    # Assume URL format is https://github.com/username/repo
-    repo_parts = github_repo_url.strip("/").split("/")
-    if len(repo_parts) < 5:
-        return "Invalid GitHub repository URL", 400
+    # Get repository path from linked repository
+    repo_path = github_info.get("repo")
+    if not repo_path:
+        # Fall back to parsing the URL if no linked repo
+        # Assume URL format is https://github.com/username/repo
+        repo_parts = github_repo_url.strip("/").split("/")
+        if len(repo_parts) < 5:
+            return "Invalid GitHub repository URL", 400
+        owner = repo_parts[-2]
+        repo = repo_parts[-1]
+    else:
+        # Use the linked repository
+        owner, repo = repo_path.split("/")
+    
+    # For direct download of selected path
+    is_direct_file = False
+    selected_folder_name = ""
+    
+    # Check if selected path is a file
+    if github_repo_path:
+        # Get the name of the selected folder or file
+        selected_folder_name = github_repo_path.split('/')[-1]
         
-    owner = repo_parts[-2]
-    repo = repo_parts[-1]
-    
-    # Get repository content
-    headers = {
-        "Authorization": f"token {access_token}",
-        "Accept": "application/vnd.github.v3+json"
-    }
-    
-    # Get repository's default branch
-    repo_info_url = f"https://api.github.com/repos/{owner}/{repo}"
-    repo_response = requests.get(repo_info_url, headers=headers)
-    if repo_response.status_code != 200:
-        return f"Failed to fetch repository info: {repo_response.text}", 400
+        check_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{github_repo_path}"
+        check_headers = {
+            "Authorization": f"token {access_token}",
+            "Accept": "application/vnd.github+json"
+        }
         
-    default_branch = repo_response.json().get("default_branch", "main")
+        check_response = requests.get(check_url, headers=check_headers)
+        if check_response.status_code == 200:
+            content_info = check_response.json()
+            # Direct file download if it's a single file
+            is_direct_file = not isinstance(content_info, list) and content_info.get("type") == "file"
+            
+            # If it's a direct file, download and return it without ZIP
+            if is_direct_file:
+                download_url = content_info.get("download_url")
+                if download_url:
+                    file_response = requests.get(download_url, headers=check_headers)
+                    if file_response.status_code == 200:
+                        memory_file = BytesIO(file_response.content)
+                        memory_file.seek(0)
+                        
+                        # Get filename from path
+                        filename = github_repo_path.split('/')[-1]
+                        
+                        return send_file(
+                            memory_file,
+                            download_name=filename,
+                            as_attachment=True,
+                            mimetype='application/octet-stream'  # Generic binary
+                        )
     
-    # Create a ZIP file in memory
+    # Create a ZIP file in memory (for folders or multiple files)
     memory_file = BytesIO()
-    with zipfile.ZipFile(memory_file, 'w') as zf:
+    with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
         # Recursively get repository contents
-        def fetch_repo_contents(path=""):
+        def fetch_repo_contents(path):
             contents_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
-            if path:
-                contents_url += f"?ref={default_branch}"
-            else:
-                contents_url += f"?ref={default_branch}"
+            
+            headers = {
+                "Authorization": f"token {access_token}",
+                "Accept": "application/vnd.github+json"
+            }
                 
             contents_response = requests.get(contents_url, headers=headers)
             if contents_response.status_code != 200:
@@ -336,13 +444,25 @@ def download_assignment(assignment_id):
                     download_url = item["download_url"]
                     file_response = requests.get(download_url, headers=headers)
                     if file_response.status_code == 200:
-                        zf.writestr(item_path, file_response.content)
+                        # Build the path for the file in the ZIP
+                        if github_repo_path and item_path.startswith(github_repo_path):
+                            # Get the part after the selected path
+                            rel_path = item_path[len(github_repo_path):].lstrip('/')
+                            # Add the selected folder as the top level directory
+                            zip_path = os.path.join(selected_folder_name, rel_path)
+                        else:
+                            # This shouldn't normally happen but as a fallback
+                            zip_path = item_path
+                        
+                        # Add file to zip
+                        zf.writestr(zip_path, file_response.content)
+                
                 elif item_type == "dir":
                     # Recursively process subdirectory
                     fetch_repo_contents(item_path)
         
         # Start recursive content retrieval
-        fetch_repo_contents()
+        fetch_repo_contents(github_repo_path)
     
     # Set file pointer to beginning
     memory_file.seek(0)
