@@ -2,6 +2,8 @@
 
 An exercise to put to practice software development teamwork, subsystem communication, containers, deployment, and CI/CD pipelines. See [instructions](./instructions.md) for details.
 
+### Docker Images
+
 ### Run Our Application
 1. Clone the repository:
    ```bash
