@@ -293,7 +293,7 @@ def submit_assignment(assignment_id):
             readme_content=readme_content
         )
     
-    return redirect(url_for('assignment.view_assignment', assignment_id=assignment_id))
+    return redirect(url_for('assignment.show_assignments', assignment_id=assignment_id))
 
 # Teacher grading and feedback
 @assignment_bp.route('/submissions/<submission_id>/grade', methods=["POST"])
@@ -517,6 +517,7 @@ def delete_assignment(assignment_id):
     else:
         return "Failed to delete assignment", 500
     
+
 @assignment_bp.route('/assignments/<assignment_id>/preview/<path:file_path>')
 def preview_assignment_file(assignment_id, file_path):
     """
