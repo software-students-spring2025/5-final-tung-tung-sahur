@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}All Students{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="my-4">All Students</h2>
+
+    {% if allStudents %}
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="thead-dark">
+                <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">Username</th>
+                    <th scope="col">Email</th>
+                    <th scope="col">Delete Student</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for student in allStudents %}
+                <tr>
+                    <th scope="row">{{ loop.index }}</th>
+                    <td>{{ student.username }}</td>
+                    <td>{{ student.email }}</td>
+                    <td>
+                        <form action="{{ url_for('delete_student', username=student.username) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this student?');">
+                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                        </form>                        
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p>No students found.</p>
+    {% endif %}
+</div>
+{% endblock %}
