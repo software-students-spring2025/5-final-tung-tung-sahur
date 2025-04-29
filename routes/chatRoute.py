@@ -1,5 +1,14 @@
 # routes/chatRoutes.py
-from flask import Blueprint, render_template, request, session, redirect, url_for, abort, flash
+from flask import (
+    Blueprint,
+    render_template,
+    request,
+    session,
+    redirect,
+    url_for,
+    abort,
+    flash,
+)
 from models.chat import ChatModel
 from models.user import UserModel
 from bson.objectid import ObjectId
@@ -18,6 +27,7 @@ user_collection = db["users"]
 user_model = UserModel(user_collection)
 chat_model = ChatModel(chat_collection)
 
+
 def get_all_contacts(current_username):
     users = user_collection.find({"username": {"$ne": current_username}})
     grouped = {"student": [], "teacher": []}
@@ -27,22 +37,30 @@ def get_all_contacts(current_username):
             grouped[identity].append(user["username"])
     return grouped
 
+
 @chat_bp.route("/")
 def chat_index():
     if "username" not in session:
         return redirect(url_for("login"))
-    
+
     username = session["username"]
     contacts = chat_model.get_recent_contacts(username)
     all_contacts = get_all_contacts(username)
 
-    return render_template("chat.html", contacts=contacts, all_contacts=all_contacts, selected=None, messages=[])
+    return render_template(
+        "chat.html",
+        contacts=contacts,
+        all_contacts=all_contacts,
+        selected=None,
+        messages=[],
+    )
+
 
 @chat_bp.route("/with/<contact>", methods=["GET", "POST"])
 def chat_with(contact):
     if "username" not in session:
         return redirect(url_for("login"))
-    
+
     username = session["username"]
 
     if contact == username:
@@ -65,4 +83,10 @@ def chat_with(contact):
     contacts = chat_model.get_recent_contacts(username)
     all_contacts = get_all_contacts(username)
 
-    return render_template("chat.html", contacts=contacts, all_contacts=all_contacts, selected=contact, messages=messages)
+    return render_template(
+        "chat.html",
+        contacts=contacts,
+        all_contacts=all_contacts,
+        selected=contact,
+        messages=messages,
+    )

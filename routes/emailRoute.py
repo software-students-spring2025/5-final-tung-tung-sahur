@@ -8,12 +8,13 @@ from dotenv import load_dotenv
 load_dotenv()
 mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/gitBrightSpace")
 client = MongoClient(mongo_uri)
-db     = client.get_database()
-users  = db["users"]
+db = client.get_database()
+users = db["users"]
 
 email_bp = Blueprint("email", __name__)
 
 EMAIL_RE = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
+
 
 # ──────────────────────────────── add / edit ────────────────────────────────
 @email_bp.route("/email/link", methods=["GET", "POST"])
@@ -28,7 +29,7 @@ def email_link():
 
         users.update_one(
             {"username": session["username"]},
-            {"$set": {"email": address, "email_verified": False}}
+            {"$set": {"email": address, "email_verified": False}},
         )
         return redirect(url_for("home"))
 
@@ -41,6 +42,7 @@ def email_link():
         identity=session.get("identity", "student"),
     )
 
+
 # ──────────────────────────────── unlink ────────────────────────────────
 @email_bp.route("/email/unlink")
 def email_unlink():
@@ -48,6 +50,6 @@ def email_unlink():
         return "Not logged in", 403
     users.update_one(
         {"username": session["username"]},
-        {"$set": {"email": None, "email_verified": False}}
+        {"$set": {"email": None, "email_verified": False}},
     )
     return redirect(url_for("home"))

@@ -2,6 +2,7 @@
 from pymongo.collection import Collection
 from bson.objectid import ObjectId
 
+
 class GitHubModel:
     def __init__(self, user_collection: Collection):
         self.user_collection = user_collection
@@ -10,12 +11,7 @@ class GitHubModel:
         """Bind GitHub account to user by updating user document."""
         result = self.user_collection.update_one(
             {"_id": ObjectId(user_id)},
-            {"$set": {
-                "github": {
-                    "id": github_id,
-                    "username": github_username
-                }
-            }}
+            {"$set": {"github": {"id": github_id, "username": github_username}}},
         )
         return result.modified_count > 0
 
@@ -29,9 +25,6 @@ class GitHubModel:
     def unbind_account(self, user_id: str) -> bool:
         """Remove GitHub info from user."""
         result = self.user_collection.update_one(
-            {"_id": ObjectId(user_id)},
-            {"$unset": {
-                "github": ""
-            }}
+            {"_id": ObjectId(user_id)}, {"$unset": {"github": ""}}
         )
         return result.modified_count > 0
