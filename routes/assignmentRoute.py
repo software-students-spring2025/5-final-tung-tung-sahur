@@ -208,7 +208,7 @@ def create_assignment():
         except Exception as e:
             print(f"Mail to {stu['email']} failed: {e}")
         
-        return redirect(url_for('assignment.show_assignments'))
+    return redirect(url_for('assignment.show_assignments'))
 
 # View single assignment details
 @assignment_bp.route('/assignments/<assignment_id>')
