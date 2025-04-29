@@ -19,15 +19,3 @@ def send_mail(to_addr: str, subject: str, body: str) -> None:
     with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, context=ctx) as smtp:
         smtp.login(SMTP_LOGIN, SMTP_PASS)
         smtp.send_message(msg)
-
-def send_mail(to_addr: str, subject: str, body: str) -> None:
-    msg             = EmailMessage()
-    msg["From"]     = FROM_EMAIL
-    msg["To"]       = to_addr
-    msg["Subject"]  = subject
-    msg.set_content(body)
-
-    ctx = ssl.create_default_context()
-    with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, context=ctx) as smtp:
-        smtp.login(SMTP_LOGIN, SMTP_PASS)
-        smtp.send_message(msg)

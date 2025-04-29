@@ -1,6 +1,8 @@
+![Web App CI/CD](https://github.com/software-students-spring2025/5-final-tung-tung-sahur/actions/workflows/web-app.yml/badge.svg)
 # DarkSpace
 ![Team Logo](static/img/logo.png)
 **DarkSpace** is a fantastic web application that is an improved version of the original NYU Brightspace, with convenient integration of GitHub Repositories and a user-friendly interface.
+
 
 ## Project Description
 

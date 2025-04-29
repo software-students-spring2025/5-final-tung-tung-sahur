@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Select Submission File{% endblock %}
+{% block title %}Files: {{ content_item.title }}{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -70,16 +70,6 @@
         border-radius: 6px;
         margin-bottom: 16px;
     }
-
-    .markdown-warning {
-        margin-top: 16px;
-        color: #dc3545;
-        font-weight: bold;
-    }
-    
-    .selected-path {
-        background-color: rgba(13, 110, 253, 0.2);
-    }
 </style>
 {% endblock %}
 
@@ -88,29 +78,30 @@
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="{{ url_for('home') }}">Home</a></li>
-            <li class="breadcrumb-item"><a href="{{ url_for('assignment.show_assignments') }}">Assignment List</a></li>
-            <li class="breadcrumb-item"><a href="{{ url_for('assignment.view_assignment', assignment_id=assignment._id) }}">{{ assignment.title }}</a></li>
-            <li class="breadcrumb-item active">Select Submission File</li>
+            <li class="breadcrumb-item"><a href="{{ url_for('content.show_content') }}">Lecture Materials</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('content.view_content', content_id=content_item._id) }}">{{ content_item.title }}</a></li>
+            <li class="breadcrumb-item active">Files</li>
         </ol>
     </nav>
 
     <div class="card mb-4">
         <div class="card-header">
-            <h3>Select a Markdown File to Submit</h3>
+            <h3>Material Files: {{ content_item.title }}</h3>
         </div>
         <div class="card-body">
+            <p>{{ content_item.description|truncate(200) }}</p>
+            
             <div class="directory-info">
-                <h5><i class="fas fa-info-circle mr-2"></i> Submission Guidelines</h5>
-                <p class="mb-0">Please select a Markdown file (.md or .markdown) from your GitHub repository to submit as your assignment. The system will read the file content as your assignment answer.</p>
-                <p class="markdown-warning">Note: Only Markdown format files can be selected for submission!</p>
+                <h5><i class="fas fa-info-circle mr-2"></i> Repository Information</h5>
+                <p class="mb-0">Browsing files from the teacher's GitHub repository. You can preview or download files to access the lecture materials.</p>
             </div>
             
             <div class="file-browser">
                 <div class="file-browser-header">
                     <ol class="breadcrumb file-browser-breadcrumb">
                         <li class="breadcrumb-item">
-                            <a href="{{ url_for('assignment.select_submission_file', assignment_id=assignment._id) }}">
-                                <i class="fas fa-home mr-1"></i> Repository Root
+                            <a href="{{ url_for('content.browse_content_files', content_id=content_item._id) }}">
+                                <i class="fas fa-home mr-1"></i> Root
                             </a>
                         </li>
                         {% for crumb in breadcrumbs %}
@@ -118,7 +109,7 @@
                                 <li class="breadcrumb-item active" style="color: #ffffff;">{{ crumb.name }}</li>
                             {% else %}
                                 <li class="breadcrumb-item">
-                                    <a href="{{ url_for('assignment.select_submission_file', assignment_id=assignment._id, path=crumb.path) }}">
+                                    <a href="{{ url_for('content.browse_content_files', content_id=content_item._id, path=crumb.path) }}">
                                         {{ crumb.name }}
                                     </a>
                                 </li>
@@ -127,10 +118,10 @@
                     </ol>
                 </div>
                 
-                <!-- If in a subdirectory, show "parent directory" link -->
+                <!-- If we're in a subdirectory, show the "parent directory" link -->
                 {% if current_path %}
                     {% set parent_path = current_path.rsplit('/', 1)[0] if '/' in current_path else '' %}
-                    <a href="{{ url_for('assignment.select_submission_file', assignment_id=assignment._id, path=parent_path) }}" class="file-browser-item">
+                    <a href="{{ url_for('content.browse_content_files', content_id=content_item._id, path=parent_path) }}" class="file-browser-item">
                         <div class="file-icon">
                             <i class="fas fa-arrow-up"></i>
                         </div>
@@ -141,7 +132,7 @@
                 <!-- List directories first -->
                 {% for item in contents %}
                     {% if item.type == 'dir' %}
-                        <a href="{{ url_for('assignment.select_submission_file', assignment_id=assignment._id, path=item.path) }}" class="file-browser-item">
+                        <a href="{{ url_for('content.browse_content_files', content_id=content_item._id, path=item.path) }}" class="file-browser-item">
                             <div class="file-icon">
                                 <i class="fas fa-folder text-warning"></i>
                             </div>
@@ -155,30 +146,39 @@
                     {% if item.type == 'file' %}
                         {% set ext = item.name.split('.')[-1] if '.' in item.name else '' %}
                         
-                        {% if ext|lower == 'md' or ext|lower == 'markdown' %}
-                            <form method="POST" action="{{ url_for('assignment.submit_markdown_assignment', assignment_id=assignment._id) }}" class="file-browser-item">
-                                <input type="hidden" name="markdown_path" value="{{ item.path }}">
-                                <div class="file-icon">
-                                    <i class="fab fa-markdown text-info"></i>
-                                </div>
-                                <div class="file-name">{{ item.name }}</div>
-                                {% if item.size %}
-                                    <div class="file-size">{{ (item.size / 1024)|round(1) }} KB</div>
-                                {% endif %}
-                                <button type="submit" class="btn btn-sm btn-primary ml-2">Select File</button>
-                            </form>
+                        {% if ext == 'py' %}
+                            {% set icon_class = 'fab fa-python text-success' %}
+                        {% elif ext == 'md' or ext == 'markdown' %}
+                            {% set icon_class = 'fab fa-markdown text-info' %}
+                        {% elif ext == 'pdf' %}
+                            {% set icon_class = 'fas fa-file-pdf text-danger' %}
+                        {% elif ext == 'c' or ext == 'cpp' or ext == 'h' %}
+                            {% set icon_class = 'fas fa-file-code text-primary' %}
+                        {% elif ext == 'js' %}
+                            {% set icon_class = 'fab fa-js text-warning' %}
+                        {% elif ext == 'html' or ext == 'htm' %}
+                            {% set icon_class = 'fab fa-html5 text-danger' %}
+                        {% elif ext == 'css' %}
+                            {% set icon_class = 'fab fa-css3-alt text-primary' %}
+                        {% elif ext == 'java' %}
+                            {% set icon_class = 'fab fa-java text-danger' %}
+                        {% elif ext == 'txt' %}
+                            {% set icon_class = 'fas fa-file-alt text-light' %}
+                        {% elif ext == 'jpg' or ext == 'jpeg' or ext == 'png' or ext == 'gif' %}
+                            {% set icon_class = 'fas fa-file-image text-success' %}
                         {% else %}
-                            <div class="file-browser-item text-muted">
-                                <div class="file-icon">
-                                    <i class="fas fa-file text-muted"></i>
-                                </div>
-                                <div class="file-name">{{ item.name }}</div>
-                                {% if item.size %}
-                                    <div class="file-size">{{ (item.size / 1024)|round(1) }} KB</div>
-                                {% endif %}
-                                <span class="badge badge-secondary ml-2">Unsupported file type</span>
-                            </div>
+                            {% set icon_class = 'fas fa-file text-light' %}
                         {% endif %}
+                        
+                        <a href="{{ url_for('content.preview_content_file', content_id=content_item._id, file_path=item.path) }}" class="file-browser-item">
+                            <div class="file-icon">
+                                <i class="{{ icon_class }}"></i>
+                            </div>
+                            <div class="file-name">{{ item.name }}</div>
+                            {% if item.size %}
+                                <div class="file-size">{{ (item.size / 1024)|round(1) }} KB</div>
+                            {% endif %}
+                        </a>
                     {% endif %}
                 {% endfor %}
                 
@@ -190,8 +190,11 @@
             </div>
             
             <div class="mt-4">
-                <a href="{{ url_for('assignment.view_assignment', assignment_id=assignment._id) }}" class="btn btn-secondary">
-                    <i class="fas fa-arrow-left mr-1"></i> Back to Assignment
+                <a href="{{ url_for('content.view_content', content_id=content_item._id) }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left mr-1"></i> Back to Material
+                </a>
+                <a href="{{ url_for('content.download_content', content_id=content_item._id) }}" class="btn btn-primary">
+                    <i class="fas fa-download mr-1"></i> Download All Files
                 </a>
             </div>
         </div>
