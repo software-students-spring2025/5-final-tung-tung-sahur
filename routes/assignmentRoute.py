@@ -8,6 +8,7 @@ from bson.objectid import ObjectId
 from pymongo import MongoClient
 from models.assignment import AssignmentModel
 from models.submission import SubmissionModel
+from email_utils import send_mail
 from dotenv import load_dotenv
 # Import shared GitHub functions
 from .githubRoute import get_repo_contents, is_repo_path_file
@@ -191,8 +192,21 @@ def create_assignment():
         github_repo_url=github_repo_url,
         github_repo_path=github_repo_path
     )
-    
-    return redirect(url_for('assignment.show_assignments'))
+    # ── NEW: fetch all student addresses and mail them
+    students = users.find({"identity": "student", "email": {"$ne": None}})
+    subject  = f"[DarkSpace] New assignment: {title}"
+    body     = (
+        f"Hello student,\n\nA new assignment “{title}” has been posted.\n"
+        f"Due: {due_datetime}\n\n"
+        f"{description}\n\nPlease submit before the deadline."
+    )
+    for stu in students:
+        try:
+            send_mail(stu["email"], subject, body)
+        except Exception as e:
+            print(f"Mail to {stu['email']} failed: {e}")
+        
+        return redirect(url_for('assignment.show_assignments'))
 
 # View single assignment details
 @assignment_bp.route('/assignments/<assignment_id>')
