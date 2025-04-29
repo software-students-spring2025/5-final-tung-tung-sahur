@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}Select Submission File{% endblock %}
+
+{% block extra_css %}
+<style>
+    .file-browser {
+        border: 1px solid #333;
+        border-radius: 6px;
+        background-color: #1e1e1e;
+    }
+    
+    .file-browser-header {
+        padding: 12px 16px;
+        background-color: #2a2a2a;
+        border-bottom: 1px solid #333;
+        border-radius: 6px 6px 0 0;
+    }
+    
+    .file-browser-breadcrumb {
+        margin-bottom: 0;
+        background-color: transparent;
+    }
+    
+    .file-browser-breadcrumb .breadcrumb-item a {
+        color: var(--accent);
+        text-decoration: none;
+    }
+    
+    .file-browser-item {
+        display: flex;
+        align-items: center;
+        padding: 8px 16px;
+        border-bottom: 1px solid #333;
+        color: var(--fg-main);
+        text-decoration: none;
+        transition: background-color 0.15s ease;
+    }
+    
+    .file-browser-item:last-child {
+        border-bottom: none;
+        border-radius: 0 0 6px 6px;
+    }
+    
+    .file-browser-item:hover {
+        background-color: rgba(13, 110, 253, 0.1);
+        color: var(--fg-main);
+    }
+    
+    .file-icon {
+        width: 24px;
+        text-align: center;
+        margin-right: 12px;
+    }
+    
+    .file-name {
+        flex-grow: 1;
+    }
+    
+    .file-size {
+        color: #6c757d;
+        font-size: 0.875rem;
+        margin-left: 8px;
+    }
+    
+    .directory-info {
+        padding: 12px 16px;
+        background-color: rgba(13, 110, 253, 0.05);
+        border-radius: 6px;
+        margin-bottom: 16px;
+    }
+
+    .markdown-warning {
+        margin-top: 16px;
+        color: #dc3545;
+        font-weight: bold;
+    }
+    
+    .selected-path {
+        background-color: rgba(13, 110, 253, 0.2);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('home') }}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('assignment.show_assignments') }}">Assignment List</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('assignment.view_assignment', assignment_id=assignment._id) }}">{{ assignment.title }}</a></li>
+            <li class="breadcrumb-item active">Select Submission File</li>
+        </ol>
+    </nav>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3>Select a Markdown File to Submit</h3>
+        </div>
+        <div class="card-body">
+            <div class="directory-info">
+                <h5><i class="fas fa-info-circle mr-2"></i> Submission Guidelines</h5>
+                <p class="mb-0">Please select a Markdown file (.md or .markdown) from your GitHub repository to submit as your assignment. The system will read the file content as your assignment answer.</p>
+                <p class="markdown-warning">Note: Only Markdown format files can be selected for submission!</p>
+            </div>
+            
+            <div class="file-browser">
+                <div class="file-browser-header">
+                    <ol class="breadcrumb file-browser-breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="{{ url_for('assignment.select_submission_file', assignment_id=assignment._id) }}">
+                                <i class="fas fa-home mr-1"></i> Repository Root
+                            </a>
+                        </li>
+                        {% for crumb in breadcrumbs %}
+                            {% if loop.last %}
+                                <li class="breadcrumb-item active">{{ crumb.name }}</li>
+                            {% else %}
+                                <li class="breadcrumb-item">
+                                    <a href="{{ url_for('assignment.select_submission_file', assignment_id=assignment._id, path=crumb.path) }}">
+                                        {{ crumb.name }}
+                                    </a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                    </ol>
+                </div>
+                
+                <!-- If in a subdirectory, show "parent directory" link -->
+                {% if current_path %}
+                    {% set parent_path = current_path.rsplit('/', 1)[0] if '/' in current_path else '' %}
+                    <a href="{{ url_for('assignment.select_submission_file', assignment_id=assignment._id, path=parent_path) }}" class="file-browser-item">
+                        <div class="file-icon">
+                            <i class="fas fa-arrow-up"></i>
+                        </div>
+                        <div class="file-name">Parent Directory</div>
+                    </a>
+                {% endif %}
+                
+                <!-- List directories first -->
+                {% for item in contents %}
+                    {% if item.type == 'dir' %}
+                        <a href="{{ url_for('assignment.select_submission_file', assignment_id=assignment._id, path=item.path) }}" class="file-browser-item">
+                            <div class="file-icon">
+                                <i class="fas fa-folder text-warning"></i>
+                            </div>
+                            <div class="file-name">{{ item.name }}</div>
+                        </a>
+                    {% endif %}
+                {% endfor %}
+                
+                <!-- Then list files -->
+                {% for item in contents %}
+                    {% if item.type == 'file' %}
+                        {% set ext = item.name.split('.')[-1] if '.' in item.name else '' %}
+                        
+                        {% if ext|lower == 'md' or ext|lower == 'markdown' %}
+                            <form method="POST" action="{{ url_for('assignment.submit_markdown_assignment', assignment_id=assignment._id) }}" class="file-browser-item">
+                                <input type="hidden" name="markdown_path" value="{{ item.path }}">
+                                <div class="file-icon">
+                                    <i class="fab fa-markdown text-info"></i>
+                                </div>
+                                <div class="file-name">{{ item.name }}</div>
+                                {% if item.size %}
+                                    <div class="file-size">{{ (item.size / 1024)|round(1) }} KB</div>
+                                {% endif %}
+                                <button type="submit" class="btn btn-sm btn-primary ml-2">Select File</button>
+                            </form>
+                        {% else %}
+                            <div class="file-browser-item text-muted">
+                                <div class="file-icon">
+                                    <i class="fas fa-file text-muted"></i>
+                                </div>
+                                <div class="file-name">{{ item.name }}</div>
+                                {% if item.size %}
+                                    <div class="file-size">{{ (item.size / 1024)|round(1) }} KB</div>
+                                {% endif %}
+                                <span class="badge badge-secondary ml-2">Unsupported file type</span>
+                            </div>
+                        {% endif %}
+                    {% endif %}
+                {% endfor %}
+                
+                {% if contents|length == 0 %}
+                    <div class="file-browser-item text-muted">
+                        <i class="fas fa-info-circle mr-2"></i> This directory is empty.
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div class="mt-4">
+                <a href="{{ url_for('assignment.view_assignment', assignment_id=assignment._id) }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left mr-1"></i> Back to Assignment
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

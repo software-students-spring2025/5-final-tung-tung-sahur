@@ -89,6 +89,17 @@ def datetime_format(value):
             return value
     return value
 
+# Used only for chat
+@app.template_filter('chat_time_format')
+def chat_time_format(value):
+    if isinstance(value, str):
+        try:
+            dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+            return dt.strftime("%Y-%m-%d %H:%M")
+        except ValueError:
+            return value
+    return value
+
 @app.route('/')
 def home():
     if "username" not in session:
@@ -147,7 +158,55 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
+def get_all_students():
+    allUsers = users.find()
+    allUsers = list(allUsers)
+    allStudents = []
+    for user in allUsers:
+        if user["identity"] == "student":
+            allStudents.append(user)
+    return allStudents
 
+# A page for only teachers to see all students
+@app.route('/allStudents')
+def all_students():
+    if "username" not in session:
+        return redirect(url_for("login"))
+
+    username = session["username"]
+    identity = session.get("identity", "student")
+    if identity != "teacher":
+        return redirect(url_for("home"))
+    allStudents = get_all_students()
+    return render_template("allStudents.html", allStudents=allStudents, username=username, identity=identity)
+
+def delete_student_and_github(username):
+    
+    # Delete the student from the users collection
+    users.delete_one({"username": username})
+
+    # Delete the student's GitHub account from the github_accounts collection
+    github_accounts.delete_one({"username": username})
+
+@app.route('/deleteStudent/<username>', methods=["POST"])
+def delete_student(username):
+    if "username" not in session:
+        return redirect(url_for("login"))
+
+    identity = session.get("identity", "student")
+    if identity != "teacher":
+        return redirect(url_for("home"))
+    # Check if the deleted user is a student
+    student = users.find_one({"username": username})
+    if not student or student["identity"] != "student":
+        return "User not found or not a student", 404
+    # Delete the student and their GitHub account
+    delete_student_and_github(username)
+    return redirect(url_for("all_students"))
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=3000)
 
+
+
+
+        

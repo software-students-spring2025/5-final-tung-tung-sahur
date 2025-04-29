@@ -23,19 +23,24 @@
         
             {% if assignment.github_repo_url %}
             <div class="alert alert-info">
-                <h5>Download assignment</h5>
-                <p>Please download assignment questions:</p>
-                <a href="{{ url_for('assignment.download_assignment', assignment_id=assignment._id) }}" class="btn btn-primary">
-                    <i class="fas fa-download"></i> Download assignment questions
-                </a>
+                <h5>Assignment Files</h5>
+                <p>The instructor has provided files for this assignment. You can preview or download them:</p>
+                <div class="btn-group" role="group">
+                    <a href="{{ url_for('assignment.browse_assignment_files', assignment_id=assignment._id) }}" class="btn btn-primary">
+                        <i class="fas fa-folder-open"></i> Browse Files
+                    </a>
+                    <a href="{{ url_for('assignment.download_assignment', assignment_id=assignment._id) }}" class="btn btn-outline-primary">
+                        <i class="fas fa-download"></i> Download All Files
+                    </a>
+                </div>
             </div>
             {% endif %}
-
+            
             <div class="mt-4">
                 <h5>Submission status</h5>
                 {% if submission %}
                     <div class="alert {% if submission.status == 'graded' %}alert-success{% else %}alert-warning{% endif %}">
-                        <p><strong>Status:</strong> {% if submission.status == 'graded' %}Graded{% else %}Submitted,waiting for grading{% endif %}</p>
+                        <p><strong>Status:</strong> {% if submission.status == 'graded' %}Graded{% else %}Submitted, waiting for grading{% endif %}</p>
                         <p><strong>Submitted at:</strong> {{ submission.submitted_at }}</p>
                         <p><strong>GitHub Link:</strong> <a href="{{ submission.github_link }}" target="_blank">{{ submission.github_link }}</a></p>
                         
@@ -49,7 +54,7 @@
                         
                         <div class="mt-3">
                             <a href="{{ url_for('assignment.view_readme', submission_id=submission._id) }}" class="btn btn-sm btn-info">
-                                Check out README
+                                View README
                             </a>
                         </div>
                         
@@ -58,28 +63,50 @@
                     </div>
                 {% endif %}
                 
-                <form method="POST" action="{{ url_for('assignment.submit_assignment', assignment_id=assignment._id) }}">
-                    <div class="form-group">
-                        <label for="github_link">GitHub repository link</label>
-                        <input type="text" class="form-control" id="github_link" name="github_link" 
-                               value="{% if submission %}{{ submission.github_link }}{% elif github_info and github_info.repo_url %}{{ github_info.repo_url }}{% endif %}" required>
-                        {% if not github_info %}
-                            <small class="form-text text-danger">Please <a href="{{ url_for('github.github_link') }}">link to Github account</a> first</small>
-                        {% elif not github_info.repo %}
-                            <small class="form-text text-warning">Please <a href="{{ url_for('github.github_repo_link') }}">select a Github repository</a> first</small>
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Submit Your Assignment</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <p><i class="fas fa-info-circle mr-2"></i> <strong>How to submit:</strong></p>
+                            <p>Browse your repository to select a markdown file for submission.</p>
+                        </div>
+                        
+                        {% if github_info and github_info.repo %}
+                            <div class="card-text mb-4">
+                                <a href="{{ url_for('assignment.select_submission_file', assignment_id=assignment._id) }}" class="btn btn-primary">
+                                    <i class="fas fa-folder-open mr-1"></i> Browse My Repository
+                                </a>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-warning">
+                                <p><i class="fas fa-exclamation-triangle mr-2"></i> <strong>Repository not linked</strong></p>
+                                <p>You need to link your GitHub account and select a repository to use this option.</p>
+                                {% if not github_info %}
+                                    <a href="{{ url_for('github.github_link') }}" class="btn btn-sm btn-primary">Link GitHub Account</a>
+                                {% elif not github_info.repo %}
+                                    <a href="{{ url_for('github.github_repo_link') }}" class="btn btn-sm btn-primary">Select Repository</a>
+                                {% endif %}
+                            </div>
                         {% endif %}
+                        
+                        <hr>
+                        <form method="POST" action="{{ url_for('assignment.submit_assignment', assignment_id=assignment._id) }}">
+                            {# Keep hidden github_link input #}
+                            {% if github_info and github_info.repo_url %}
+                            <input type="hidden" name="github_link" value="{{ github_info.repo_url }}">
+                            {% endif %}
+                            {# Pass existing readme_content as hidden input to support rendering #}
+                            {% if submission and submission.readme_content %}
+                            <input type="hidden" name="readme_content" value="{{ submission.readme_content|e }}">
+                            {% endif %}
+                            <button type="submit" class="btn btn-primary">
+                                {% if submission %}Update submission{% else %}Submit assignment{% endif %}
+                            </button>
+                        </form>
                     </div>
-                    
-                    <div class="form-group">
-                        <label for="readme_content">README content</label>
-                        <textarea class="form-control" id="readme_content" name="readme_content" rows="10">{% if submission %}{{ submission.readme_content }}{% endif %}</textarea>
-                        <small class="form-text text-muted">Please copy your Readme Content here</small>
-                    </div>
-                    
-                    <button type="submit" class="btn btn-primary">
-                        {% if submission %}Update submssion{% else %}Submit assignment{% endif %}
-                    </button>
-                </form>
+                </div>
             </div>
         </div>
     </div>
