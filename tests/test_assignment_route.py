@@ -331,6 +331,186 @@ class TestSelectSubmissionFile:
         assert "/submit-markdown" in resp.headers["Location"]
 
 
+from datetime import timedelta
+import io, contextlib
+
+
+class TestShowAssignmentsStudent:
+    def test_student_view(self, client):
+        login_session(client, username="bob", identity="student")
+        from routes import assignmentRoute as mod
+
+        now = datetime.now()
+        mod.assignment_model.get_all_assignments.return_value = [
+            {
+                "_id": "a1",
+                "due_date": (now + timedelta(days=2)).isoformat(),
+            },
+            {
+                "_id": "a2",
+                "due_date": (now - timedelta(days=1)).isoformat(),  # 已超期
+            },
+        ]
+        mod.users.find_one.return_value = {"_id": "stu1", "username": "bob"}
+        mod.submission_model.get_student_submissions.return_value = []
+
+        mod.render_template.reset_mock()
+        resp = client.get("/assignments")
+        assert resp.status_code == 200
+
+        _, kwargs = mod.render_template.call_args
+        assign_list = kwargs["assignments"]
+        assert assign_list[0]["remaining_days"] >= 0
+        assert assign_list[1]["overdue"] is True
+
+
+
+class TestViewAssignmentTeacher:
+    def test_teacher_detail(self, client):
+        login_session(client, identity="teacher")
+        from routes import assignmentRoute as mod
+
+        mod.render_template.reset_mock()
+
+        aid = "a100"
+        teacher_oid = "60d21b4667d0d8992e610c85"
+        student_oid = "60d21b4667d0d8992e610c86"
+
+        mod.assignment_model.get_assignment.return_value = {
+            "_id": aid,
+            "teacher_id": teacher_oid,
+        }
+        mod.submission_model.get_assignment_submissions.return_value = [
+            {"student_id": student_oid, "_id": "sub1"}
+        ]
+        mod.users.find_one.side_effect = [
+            {"_id": teacher_oid, "username": "alice"},
+            {"_id": student_oid, "username": "bob"},
+        ]
+
+        resp = client.get(f"/assignments/{aid}")
+        assert resp.status_code == 200
+        _, kwargs = mod.render_template.call_args
+        assert kwargs["submissions"][0]["student_username"] == "bob"
+
+
+
+class TestGradeSubmission:
+    def test_grade_ok(self, client):
+        login_session(client, identity="teacher")
+        from routes import assignmentRoute as mod
+
+        mod.submission_model.add_feedback.return_value = True
+        mod.submission_model.get_submission.return_value = {"assignment_id": "a1"}
+
+        resp = client.post(
+            "/submissions/s1/grade", data={"grade": "95", "feedback": "good"}
+        )
+        assert resp.status_code == 302
+        mod.submission_model.add_feedback.assert_called_once_with("s1", 95.0, "good")
+
+
+
+class TestBrowseRedirectPreview:
+    def test_browse_redirects(self, client):
+        login_session(client)
+        from routes import assignmentRoute as mod
+
+        aid = "a1"
+        teacher_oid = "60d21b4667d0d8992e610c85"
+        mod.assignment_model.get_assignment.return_value = {
+            "teacher_id": teacher_oid,
+            "github_repo_path": "docs",
+        }
+        mod.users.find_one.side_effect = [
+            {"_id": teacher_oid, "username": "alice"},
+        ]
+        mod.github_accounts.find_one.return_value = {
+            "repo": "alice/demo",
+            "access_token": "TOKEN",
+        }
+        mod.is_repo_path_file.return_value = True
+
+        resp = client.get(
+            f"/assignments/{aid}/browse?path=docs/report.md", follow_redirects=False
+        )
+        assert resp.status_code == 302
+        assert "/preview/" in resp.headers["Location"]
+
+
+
+class TestPreviewCodeFile:
+    def test_preview_py(self, client):
+        login_session(client)
+        from routes import assignmentRoute as mod
+
+        teacher_oid = "60d21b4667d0d8992e610c85"
+        mod.assignment_model.get_assignment.return_value = {
+            "teacher_id": teacher_oid,
+            "github_repo_path": "",
+        }
+        mod.users.find_one.side_effect = [
+            {"_id": teacher_oid, "username": "alice"},
+        ]
+        mod.github_accounts.find_one.return_value = {
+            "repo": "alice/demo",
+            "access_token": "TOKEN",
+        }
+        mod.requests.get.return_value.status_code = 200
+        mod.requests.get.return_value.content = b"print('hello')"
+
+        mod.render_template.reset_mock()
+        resp = client.get("/assignments/a1/preview/main.py")
+        assert resp.status_code == 200
+        assert mod.render_template.call_args[0][0] == "preview_code.html"
+
+
+# ---------------------------------------------------------------------------
+#  /assignments/<id>/select-file 
+# ---------------------------------------------------------------------------
+class TestSelectSubmissionList:
+    def test_list_directory(self, client):
+        login_session(client, username="bob", identity="student")
+        from routes import assignmentRoute as mod
+
+        mod.assignment_model.get_assignment.return_value = {"title": "Hw"}
+        mod.github_accounts.find_one.return_value = {
+            "repo": "bob/demo",
+            "access_token": "TOKEN",
+        }
+        mod.is_repo_path_file.return_value = False
+        mod.get_repo_contents.return_value = [
+            {"name": "docs", "path": "docs", "type": "dir", "url": "u"},
+            {
+                "name": "report.md",
+                "path": "docs/report.md",
+                "type": "file",
+                "url": "u2",
+            },
+        ]
+
+        resp = client.get("/assignments/aid321/select-file?path=docs")
+        assert resp.status_code == 200
+
+
+class TestSubmitMarkdownInvalidExt:
+    def test_invalid_extension(self, client):
+        login_session(client, username="bob", identity="student")
+        from routes import assignmentRoute as mod
+
+        mod.assignment_model.get_assignment.return_value = {"title": "HW"}
+        mod.github_accounts.find_one.return_value = {
+            "repo": "bob/demo",
+            "access_token": "TOKEN",
+        }
+        mod.is_repo_path_file.return_value = True  
+
+        resp = client.get(
+            "/assignments/aid321/submit-markdown?markdown_path=notes.txt"
+        )
+        assert resp.status_code == 400
+
+
 # -----------------------------------------------------------------------------
 #  HOW TO RUN
 # -----------------------------------------------------------------------------
