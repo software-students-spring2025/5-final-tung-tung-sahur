@@ -4,6 +4,8 @@ from unittest.mock import MagicMock, patch
 from bson.objectid import ObjectId
 from routes.contentRoute import content_bp
 from flask import Flask, session
+from tests.conftest import mock_mongo
+from flask import url_for
 
 class TestContentRoutes:
     @pytest.fixture
@@ -201,3 +203,266 @@ class TestContentRoutes:
         args, kwargs = mock_render_template.call_args
         assert "content_detail.html" in args
         assert "content" in kwargs
+
+@patch('routes.contentRoute.render_template')
+@patch('routes.contentRoute.ContentModel')
+def test_view_content(self, mock_content_model, mock_render_template, client):
+    # 设置
+    content_id = "60d21b4667d0d8992e610c88"
+    
+    # 模拟内容
+    mock_content = {
+        "_id": ObjectId(content_id),
+        "title": "Introduction to Python",
+        "description": "Learn the basics of Python programming",
+        "teacher_id": "60d21b4667d0d8992e610c85"
+    }
+    mock_content_model.return_value.get_content.return_value = mock_content
+    
+    # 模拟模板渲染
+    mock_render_template.return_value = "Rendered Template"
+    
+    # 执行
+    with client.session_transaction() as sess:
+        sess['username'] = 'student'
+        sess['identity'] = 'student'
+        
+    response = client.get(f'/content/{content_id}')
+    
+    # 验证
+    mock_content_model.return_value.get_content.assert_called_once_with(content_id)
+    mock_render_template.assert_called_once()
+    args, kwargs = mock_render_template.call_args
+    assert "content_detail.html" in args
+    assert "content" in kwargs
+    assert kwargs["content"]["_id"] == ObjectId(content_id)
+
+@patch('routes.contentRoute.send_file')
+@patch('routes.contentRoute.ContentModel')
+@patch('routes.contentRoute.users')
+@patch('routes.contentRoute.github_accounts')
+@patch('routes.contentRoute.is_repo_path_file')
+@patch('routes.contentRoute.get_repo_contents')
+@patch('routes.contentRoute.zipfile.ZipFile')
+@patch('routes.contentRoute.BytesIO')
+def test_download_content(self, mock_bytesio, mock_zipfile, mock_get_contents, 
+                        mock_is_file, mock_github_accounts, mock_users, 
+                        mock_content_model, mock_send_file, client):
+    # 设置
+    content_id = "60d21b4667d0d8992e610c88"
+    
+    # 模拟内容
+    mock_content = {
+        "_id": ObjectId(content_id),
+        "title": "Introduction to Python",
+        "description": "Learn the basics of Python programming",
+        "teacher_id": "60d21b4667d0d8992e610c85",
+        "github_repo_url": "https://github.com/teacher/repo",
+        "github_repo_path": "lectures/python-intro"
+    }
+    mock_content_model.return_value.get_content.return_value = mock_content
+    
+    # 模拟教师
+    mock_users.find_one.return_value = {
+        "_id": ObjectId("60d21b4667d0d8992e610c85"),
+        "username": "teacher"
+    }
+    
+    # 模拟GitHub账户
+    mock_github_accounts.find_one.return_value = {
+        "username": "teacher",
+        "repo": "teacher/repo",
+        "access_token": "test_token"
+    }
+    
+    # 模拟是否为文件检查
+    mock_is_file.return_value = False
+    
+    # 模拟仓库内容
+    mock_get_contents.return_value = []
+    
+    # 模拟BytesIO
+    mock_memory_file = MagicMock()
+    mock_bytesio.return_value = mock_memory_file
+    
+    # 模拟send_file
+    mock_send_file.return_value = "File Sent"
+    
+    # 执行
+    with client.session_transaction() as sess:
+        sess['username'] = 'student'
+        sess['identity'] = 'student'
+        
+    response = client.get(f'/content/{content_id}/download')
+    
+    # 验证
+    mock_content_model.return_value.get_content.assert_called_once_with(content_id)
+    mock_users.find_one.assert_called_once()
+    mock_github_accounts.find_one.assert_called_once()
+    mock_is_file.assert_called_once()
+    mock_send_file.assert_called_once()
+
+@patch('routes.contentRoute.render_template')
+@patch('routes.contentRoute.is_repo_path_file')
+@patch('routes.contentRoute.get_repo_contents')
+def test_browse_content_files(self, mock_get_contents, mock_is_file, mock_render_template, client):
+    # 设置
+    content_id = "60d21b4667d0d8992e610c88"
+    
+    # 模拟内容
+    with patch('routes.contentRoute.ContentModel') as mock_content_model:
+        mock_content = {
+            "_id": ObjectId(content_id),
+            "title": "Introduction to Python",
+            "description": "Learn the basics of Python programming",
+            "teacher_id": "60d21b4667d0d8992e610c85",
+            "github_repo_path": "lectures/python-intro"
+        }
+        mock_content_model.return_value.get_content.return_value = mock_content
+        
+        # 模拟教师
+        with patch('routes.contentRoute.users') as mock_users:
+            mock_users.find_one.return_value = {
+                "_id": ObjectId("60d21b4667d0d8992e610c85"),
+                "username": "teacher"
+            }
+            
+            # 模拟GitHub账户
+            with patch('routes.contentRoute.github_accounts') as mock_github_accounts:
+                mock_github_accounts.find_one.return_value = {
+                    "username": "teacher",
+                    "repo": "teacher/repo",
+                    "access_token": "test_token"
+                }
+                
+                # 模拟是否为文件检查
+                mock_is_file.return_value = False
+                
+                # 模拟仓库内容
+                mock_get_contents.return_value = [
+                    {"name": "intro.md", "path": "lectures/python-intro/intro.md", "type": "file", "size": 1024},
+                    {"name": "examples", "path": "lectures/python-intro/examples", "type": "dir"}
+                ]
+                
+                # 模拟模板渲染
+                mock_render_template.return_value = "Rendered Template"
+                
+                # 执行
+                with client.session_transaction() as sess:
+                    sess['username'] = 'student'
+                    sess['identity'] = 'student'
+                    
+                response = client.get(f'/content/{content_id}/browse')
+                
+                # 验证
+                mock_content_model.return_value.get_content.assert_called_once_with(content_id)
+                mock_is_file.assert_called_once()
+                mock_get_contents.assert_called_once()
+                mock_render_template.assert_called_once()
+                args, kwargs = mock_render_template.call_args
+                assert "browse_content_files.html" in args
+                assert "content_item" in kwargs
+                assert "contents" in kwargs
+
+@patch('routes.contentRoute.render_template')
+@patch('routes.contentRoute.requests')
+def test_preview_content_file(self, mock_requests, mock_render_template, client):
+    # 设置
+    content_id = "60d21b4667d0d8992e610c88"
+    file_path = "lectures/python-intro/intro.md"
+    
+    # 模拟内容
+    with patch('routes.contentRoute.ContentModel') as mock_content_model:
+        mock_content = {
+            "_id": ObjectId(content_id),
+            "title": "Introduction to Python",
+            "description": "Learn the basics of Python programming",
+            "teacher_id": "60d21b4667d0d8992e610c85",
+            "github_repo_path": "lectures/python-intro"
+        }
+        mock_content_model.return_value.get_content.return_value = mock_content
+        
+        # 模拟教师
+        with patch('routes.contentRoute.users') as mock_users:
+            mock_users.find_one.return_value = {
+                "_id": ObjectId("60d21b4667d0d8992e610c85"),
+                "username": "teacher"
+            }
+            
+            # 模拟GitHub账户
+            with patch('routes.contentRoute.github_accounts') as mock_github_accounts:
+                mock_github_accounts.find_one.return_value = {
+                    "username": "teacher",
+                    "repo": "teacher/repo",
+                    "access_token": "test_token"
+                }
+                
+                # 模拟API请求
+                mock_response = MagicMock()
+                mock_response.status_code = 200
+                mock_response.content = b"# Python Introduction\nThis is an introduction to Python."
+                mock_requests.get.return_value = mock_response
+                
+                # 模拟模板渲染
+                mock_render_template.return_value = "Rendered Template"
+                
+                # 执行
+                with client.session_transaction() as sess:
+                    sess['username'] = 'student'
+                    sess['identity'] = 'student'
+                    
+                response = client.get(f'/content/{content_id}/preview/{file_path}')
+                
+                # 验证
+                mock_content_model.return_value.get_content.assert_called_once_with(content_id)
+                mock_requests.get.assert_called_once()
+                mock_render_template.assert_called_once()
+                args, kwargs = mock_render_template.call_args
+                assert "preview_markdown.html" in args
+                assert "content" in kwargs
+                assert kwargs["content"] == "# Python Introduction\nThis is an introduction to Python."
+
+@patch('routes.contentRoute.redirect')
+@patch('routes.contentRoute.ContentModel')
+@patch('routes.contentRoute.url_for')
+def test_delete_content(self, mock_url_for, mock_content_model, mock_redirect, client):
+    # 设置
+    content_id = "60d21b4667d0d8992e610c88"
+    
+    # 模拟url_for以避免循环导入问题
+    mock_url_for.return_value = "/content.show_content"
+    
+    # 模拟内容
+    mock_content = {
+        "_id": ObjectId(content_id),
+        "title": "Introduction to Python",
+        "description": "Learn the basics of Python programming",
+        "teacher_id": "60d21b4667d0d8992e610c85"
+    }
+    mock_content_model.return_value.get_content.return_value = mock_content
+    
+    # 模拟用户
+    with patch('routes.contentRoute.users') as mock_users:
+        mock_users.find_one.return_value = {
+            "_id": ObjectId("60d21b4667d0d8992e610c85"),
+            "username": "teacher",
+            "identity": "teacher"
+        }
+        
+        # 模拟内容删除
+        mock_content_model.return_value.delete_content.return_value = True
+        
+        # 模拟重定向
+        mock_redirect.return_value = "Redirected"
+        
+        # 执行
+        with client.session_transaction() as sess:
+            sess['username'] = 'teacher'
+            sess['identity'] = 'teacher'
+            
+        response = client.post(f'/content/{content_id}/delete')
+        
+        # 验证
+        mock_content_model.return_value.get_content.assert_called_once_with(content_id)
+        mock_content_model.return_value.delete_content.assert_called_once_with(content_id)
+        mock_redirect.assert_called_once()

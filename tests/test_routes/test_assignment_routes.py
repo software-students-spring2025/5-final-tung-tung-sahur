@@ -5,6 +5,7 @@ from bson.objectid import ObjectId
 from datetime import datetime, timedelta
 from routes.assignmentRoute import assignment_bp
 from flask import Flask
+from flask import jsonify
 
 class TestAssignmentRoutes:
     @pytest.fixture
@@ -575,3 +576,265 @@ class TestAssignmentRoutes:
         assert "readme_content" in kwargs
         assert "submission" in kwargs
         assert kwargs["readme_content"] == "# My Submission\nThis is my homework."
+
+@patch('routes.assignmentRoute.list_repo_contents')
+def test_list_repo_contents(self, mock_list_repo_contents, client):
+    # 设置
+    mock_list_repo_contents.return_value = jsonify([
+        {"name": "file1.py", "path": "file1.py", "type": "file"},
+        {"name": "folder1", "path": "folder1", "type": "dir"}
+    ])
+    
+    # 模拟GitHub账户信息
+    with patch('routes.assignmentRoute.github_accounts') as mock_github_accounts:
+        mock_github_accounts.find_one.return_value = {
+            "username": "teacher",
+            "repo": "teacher/repo",
+            "access_token": "test_token"
+        }
+        
+        # 执行
+        with client.session_transaction() as sess:
+            sess['username'] = 'teacher'
+            sess['identity'] = 'teacher'
+            
+        response = client.get('/assignments/list_repo_contents')
+        
+        # 验证
+        assert response.status_code == 200
+        mock_github_accounts.find_one.assert_called_once_with({"username": "teacher"})
+
+@patch('routes.assignmentRoute.render_template')
+@patch('routes.assignmentRoute.is_repo_path_file')
+@patch('routes.assignmentRoute.get_repo_contents')
+def test_browse_assignment_files(self, mock_get_contents, mock_is_file, mock_render_template, client):
+    # 设置
+    assignment_id = "60d21b4667d0d8992e610c86"
+    
+    # 模拟作业
+    with patch('routes.assignmentRoute.AssignmentModel') as mock_assignment_model:
+        mock_assignment = {
+            "_id": ObjectId(assignment_id),
+            "title": "Test Assignment",
+            "description": "Test Description",
+            "teacher_id": "60d21b4667d0d8992e610c85",
+            "github_repo_path": "assignments/test"
+        }
+        mock_assignment_model.return_value.get_assignment.return_value = mock_assignment
+        
+        # 模拟教师
+        with patch('routes.assignmentRoute.users') as mock_users:
+            mock_users.find_one.return_value = {
+                "_id": ObjectId("60d21b4667d0d8992e610c85"),
+                "username": "teacher"
+            }
+            
+            # 模拟GitHub账户
+            with patch('routes.assignmentRoute.github_accounts') as mock_github_accounts:
+                mock_github_accounts.find_one.return_value = {
+                    "username": "teacher",
+                    "repo": "teacher/repo",
+                    "access_token": "test_token"
+                }
+                
+                # 模拟是否为文件检查
+                mock_is_file.return_value = False
+                
+                # 模拟仓库内容
+                mock_get_contents.return_value = [
+                    {"name": "file1.py", "path": "assignments/test/file1.py", "type": "file", "size": 1024},
+                    {"name": "folder1", "path": "assignments/test/folder1", "type": "dir"}
+                ]
+                
+                # 模拟模板渲染
+                mock_render_template.return_value = "Rendered Template"
+                
+                # 执行
+                with client.session_transaction() as sess:
+                    sess['username'] = 'student'
+                    sess['identity'] = 'student'
+                    
+                response = client.get(f'/assignments/{assignment_id}/browse')
+                
+                # 验证
+                mock_assignment_model.return_value.get_assignment.assert_called_once_with(assignment_id)
+                mock_is_file.assert_called_once()
+                mock_get_contents.assert_called_once()
+                mock_render_template.assert_called_once()
+                args, kwargs = mock_render_template.call_args
+                assert "browse_assignment_files.html" in args
+                assert "assignment" in kwargs
+                assert "contents" in kwargs
+
+@patch('routes.assignmentRoute.render_template')
+@patch('routes.assignmentRoute.is_repo_path_file')
+@patch('routes.assignmentRoute.requests')
+def test_preview_assignment_file_markdown(self, mock_requests, mock_is_file, mock_render_template, client):
+    # 设置
+    assignment_id = "60d21b4667d0d8992e610c86"
+    file_path = "assignments/test/README.md"
+    
+    # 模拟作业
+    with patch('routes.assignmentRoute.AssignmentModel') as mock_assignment_model:
+        mock_assignment = {
+            "_id": ObjectId(assignment_id),
+            "title": "Test Assignment",
+            "description": "Test Description",
+            "teacher_id": "60d21b4667d0d8992e610c85",
+            "github_repo_path": "assignments/test"
+        }
+        mock_assignment_model.return_value.get_assignment.return_value = mock_assignment
+        
+        # 模拟教师
+        with patch('routes.assignmentRoute.users') as mock_users:
+            mock_users.find_one.return_value = {
+                "_id": ObjectId("60d21b4667d0d8992e610c85"),
+                "username": "teacher"
+            }
+            
+            # 模拟GitHub账户
+            with patch('routes.assignmentRoute.github_accounts') as mock_github_accounts:
+                mock_github_accounts.find_one.return_value = {
+                    "username": "teacher",
+                    "repo": "teacher/repo",
+                    "access_token": "test_token"
+                }
+                
+                # 模拟API请求
+                mock_response = MagicMock()
+                mock_response.status_code = 200
+                mock_response.content = b"# Test Markdown\nThis is a test."
+                mock_requests.get.return_value = mock_response
+                
+                # 模拟模板渲染
+                mock_render_template.return_value = "Rendered Template"
+                
+                # 执行
+                with client.session_transaction() as sess:
+                    sess['username'] = 'student'
+                    sess['identity'] = 'student'
+                    
+                response = client.get(f'/assignments/{assignment_id}/preview/{file_path}')
+                
+                # 验证
+                mock_assignment_model.return_value.get_assignment.assert_called_once_with(assignment_id)
+                mock_requests.get.assert_called_once()
+                mock_render_template.assert_called_once()
+                args, kwargs = mock_render_template.call_args
+                assert "preview_markdown.html" in args
+                assert "content" in kwargs
+                assert kwargs["content"] == "# Test Markdown\nThis is a test."
+
+@patch('routes.assignmentRoute.render_template')
+@patch('routes.assignmentRoute.get_repo_contents')
+def test_select_submission_file(self, mock_get_contents, mock_render_template, client):
+    # 设置
+    assignment_id = "60d21b4667d0d8992e610c86"
+    
+    # 模拟作业
+    with patch('routes.assignmentRoute.AssignmentModel') as mock_assignment_model:
+        mock_assignment = {
+            "_id": ObjectId(assignment_id),
+            "title": "Test Assignment",
+            "description": "Test Description"
+        }
+        mock_assignment_model.return_value.get_assignment.return_value = mock_assignment
+        
+        # 模拟GitHub账户
+        with patch('routes.assignmentRoute.github_accounts') as mock_github_accounts:
+            mock_github_accounts.find_one.return_value = {
+                "username": "student",
+                "repo": "student/repo",
+                "access_token": "test_token"
+            }
+            
+            # 模拟是否为文件检查
+            with patch('routes.assignmentRoute.is_repo_path_file') as mock_is_file:
+                mock_is_file.return_value = False
+                
+                # 模拟仓库内容
+                mock_get_contents.return_value = [
+                    {"name": "README.md", "path": "README.md", "type": "file", "size": 1024},
+                    {"name": "docs", "path": "docs", "type": "dir"}
+                ]
+                
+                # 模拟模板渲染
+                mock_render_template.return_value = "Rendered Template"
+                
+                # 执行
+                with client.session_transaction() as sess:
+                    sess['username'] = 'student'
+                    sess['identity'] = 'student'
+                    
+                response = client.get(f'/assignments/{assignment_id}/select-file')
+                
+                # 验证
+                mock_assignment_model.return_value.get_assignment.assert_called_once_with(assignment_id)
+                mock_github_accounts.find_one.assert_called_once_with({"username": "student"})
+                mock_get_contents.assert_called_once()
+                mock_render_template.assert_called_once()
+                args, kwargs = mock_render_template.call_args
+                assert "student_repo_browser.html" in args
+                assert "assignment" in kwargs
+                assert "contents" in kwargs
+
+@patch('routes.assignmentRoute.render_template')
+@patch('routes.assignmentRoute.requests')
+@patch('routes.assignmentRoute.redirect')
+@patch('routes.assignmentRoute.url_for')
+def test_submit_markdown_assignment_get(self, mock_url_for, mock_redirect, mock_requests, mock_render_template, client):
+    # 设置
+    assignment_id = "60d21b4667d0d8992e610c86"
+    markdown_path = "README.md"
+    
+    # 模拟url_for以避免循环导入问题
+    mock_url_for.return_value = f"/assignments/{assignment_id}"
+    
+    # 模拟作业
+    with patch('routes.assignmentRoute.AssignmentModel') as mock_assignment_model:
+        mock_assignment = {
+            "_id": ObjectId(assignment_id),
+            "title": "Test Assignment",
+            "description": "Test Description"
+        }
+        mock_assignment_model.return_value.get_assignment.return_value = mock_assignment
+        
+        # 模拟GitHub账户
+        with patch('routes.assignmentRoute.github_accounts') as mock_github_accounts:
+            mock_github_accounts.find_one.return_value = {
+                "username": "student",
+                "repo": "student/repo",
+                "access_token": "test_token"
+            }
+            
+            # 模拟是否为文件检查
+            with patch('routes.assignmentRoute.is_repo_path_file') as mock_is_file:
+                mock_is_file.return_value = True
+                
+                # 模拟API请求
+                mock_response = MagicMock()
+                mock_response.status_code = 200
+                mock_response.content = b"# My Submission\nThis is my homework."
+                mock_requests.get.return_value = mock_response
+                
+                # 模拟模板渲染
+                mock_render_template.return_value = "Rendered Template"
+                
+                # 执行
+                with client.session_transaction() as sess:
+                    sess['username'] = 'student'
+                    sess['identity'] = 'student'
+                    
+                response = client.get(f'/assignments/{assignment_id}/submit-markdown?markdown_path={markdown_path}')
+                
+                # 验证
+                mock_assignment_model.return_value.get_assignment.assert_called_once_with(assignment_id)
+                mock_github_accounts.find_one.assert_called_once_with({"username": "student"})
+                mock_is_file.assert_called_once()
+                mock_requests.get.assert_called_once()
+                mock_render_template.assert_called_once()
+                args, kwargs = mock_render_template.call_args
+                assert "markdown_preview_submission.html" in args
+                assert "assignment" in kwargs
+                assert "markdown_path" in kwargs
+                assert "markdown_content" in kwargs
