@@ -181,3 +181,93 @@ class TestGithubBlueprint:
         result = list_repo_files_recursive("alice", "demo", "TOKEN123")
         assert len(result) == 2
         assert {f["path"] for f in result} == {"file1.py", "subdir/file2.txt"}
+
+class TestGithubBlueprintExtra:
+    # ---------- /github/unlink ----------
+    @patch("routes.githubRoute.github_accounts")
+    def test_github_unlink(self, mock_github_acc, client):
+        with client.session_transaction() as s:
+            s["username"] = "alice"
+
+        resp = client.get("/github/unlink")
+        assert resp.status_code == 302
+        assert resp.headers["Location"].endswith("/home")
+        mock_github_acc.delete_one.assert_called_once_with({"username": "alice"})
+
+    # ---------- /github/repo/link  (POST) ----------
+    @patch("routes.githubRoute.github_accounts")
+    def test_repo_link_post(self, mock_github_acc, client):
+        with client.session_transaction() as s:
+            s["username"] = "alice"
+
+        resp = client.post("/github/repo/link", data={"repo": "alice/demo"})
+        assert resp.status_code == 302
+        mock_github_acc.update_one.assert_called_once_with(
+            {"username": "alice"},
+            {
+                "$set": {
+                    "repo": "alice/demo",
+                    "repo_url": "https://github.com/alice/demo",
+                }
+            },
+        )
+
+    # ---------- /github/repo/unlink ----------
+    @patch("routes.githubRoute.github_accounts")
+    def test_repo_unlink(self, mock_github_acc, client):
+        with client.session_transaction() as s:
+            s["username"] = "alice"
+        mock_github_acc.find_one.return_value = {"username": "alice"}
+
+        resp = client.get("/github/repo/unlink")
+        assert resp.status_code == 302
+        mock_github_acc.update_one.assert_called_once()
+
+    # ---------- /github/repo/files ----------
+    @patch("routes.githubRoute.render_template")
+    @patch("routes.githubRoute.list_repo_files_recursive")
+    @patch("routes.githubRoute.github_accounts")
+    def test_repo_files_view(
+        self,
+        mock_accounts,
+        mock_list,
+        mock_render,
+        client,
+    ):
+        with client.session_transaction() as s:
+            s["username"] = "alice"
+        mock_accounts.find_one.return_value = {
+            "access_token": "TOKEN",
+            "repo": "alice/demo",
+        }
+        mock_list.return_value = [{"path": "README.md"}]
+        mock_render.return_value = "OK"
+
+        resp = client.get("/github/repo/files")
+        assert resp.status_code == 200
+        mock_render.assert_called_once()
+
+    # ---------- Helper: is_repo_path_file ----------
+    @patch("routes.githubRoute.get_repo_contents")
+    def test_is_repo_path_file(self, mock_get):
+        from routes.githubRoute import is_repo_path_file
+
+        mock_get.return_value = {"type": "file"}
+        assert is_repo_path_file("alice", "demo", "tok", "README.md") is True
+
+        mock_get.return_value = [{"type": "file"}]  # list ⇒ treated as dir
+        assert is_repo_path_file("alice", "demo", "tok", "") is False
+
+    # ---------- list_repo_files_recursive error branch ----------
+    @patch("routes.githubRoute.get_repo_contents")
+    def test_list_repo_files_recursive_error(self, mock_get):
+        from routes.githubRoute import list_repo_files_recursive
+
+        mock_get.side_effect = Exception("boom")
+        # should not raise, but return empty list
+        assert list_repo_files_recursive("o", "r", "t") == []
+
+    # ---------- /github/repo/contents : invalid session ----------
+    def test_get_repo_contents_not_logged_in(self, client):
+        resp = client.get("/github/repo/contents")
+        assert resp.status_code == 403
