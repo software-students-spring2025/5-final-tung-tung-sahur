@@ -77,7 +77,7 @@ scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
 scheduler.add_job(
     due_soon_job,
     trigger=IntervalTrigger(minutes=1),
-    next_run_time=datetime.utcnow(),       # run immediately on startup
+    next_run_time=datetime.now(timezone.utc),       # run immediately on startup
     id="due_reminder"
 )
 scheduler.start()
