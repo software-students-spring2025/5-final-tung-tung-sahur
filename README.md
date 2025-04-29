@@ -73,3 +73,10 @@ Please see `.env.example` for all the environment variables you need to set up. 
 - You need to apply for an OAuth application on GitHub to get the `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`. 
 - `Email_password` is used for email notifications.
 - `TEACHER_INVITE_CODE` is used for the teacher registration. You can set it to any string you want.
+
+### Test:
+For unit Pytest, the CI/CD work flow would be automatically running on GitHub with Actions
+For manually running the test, just use
+    ```bash
+    pytest tests/test_routes/test_chat_routes_extra.py(or other test.py file)
+    ```
