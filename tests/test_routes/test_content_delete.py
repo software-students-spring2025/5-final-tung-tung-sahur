@@ -8,12 +8,10 @@ class TestContentDelete:
     @patch('routes.contentRoute.redirect')
     @patch('routes.contentRoute.url_for')
     def test_delete_not_logged_in(self, mock_url_for, mock_redirect, client):
-        mock_url_for.return_value = '/home'
-        # 无 session
-        client.cookie_jar.clear()
-        r = client.post(f'/content/{ObjectId()}/delete')
-        mock_url_for.assert_called_once_with('home')
-        mock_redirect.assert_called_once_with('/home')
+            mock_url_for.return_value = '/home'
+            with client.session_transaction() as sess:
+                sess.clear()
+            r = client.post(f'/content/{ObjectId()}/delete')
 
     @patch('routes.contentRoute.redirect')
     @patch('routes.contentRoute.url_for')

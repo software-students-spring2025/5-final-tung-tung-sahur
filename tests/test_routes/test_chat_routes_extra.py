@@ -5,10 +5,11 @@ import routes.chatRoute as CR
 
 @pytest.fixture(autouse=True)
 def clear_session(client):
-    # 每次清空 session
-    client.cookie_jar.clear()
+    with client.session_transaction() as sess:
+        sess.clear()
     yield
-    client.cookie_jar.clear()
+    with client.session_transaction() as sess:
+        sess.clear()
 
 class TestChatRoutesExtra:
 
