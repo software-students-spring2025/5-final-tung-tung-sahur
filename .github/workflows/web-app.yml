@@ -2,7 +2,9 @@ name: Web App CI/CD Pipeline
 
 on:
   pull_request:
-    branches: [ main]
+    branches: [ main, master ]
+  push:
+    branches: [ main, master ]
 
 jobs:
   build-test-deploy:
