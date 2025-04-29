@@ -8,6 +8,7 @@ from bson.objectid import ObjectId
 from pymongo import MongoClient
 from models.assignment import AssignmentModel
 from models.submission import SubmissionModel
+from email_utils import send_mail
 from dotenv import load_dotenv
 import base64
 import mimetypes
@@ -193,7 +194,20 @@ def create_assignment():
         github_repo_url=github_repo_url,
         github_repo_path=github_repo_path
     )
-    
+    # ── NEW: fetch all student addresses and mail them
+    students = users.find({"identity": "student", "email": {"$ne": None}})
+    subject  = f"[DarkSpace] New assignment: {title}"
+    body     = (
+        f"Hello student,\n\nA new assignment “{title}” has been posted.\n"
+        f"Due: {due_datetime}\n\n"
+        f"{description}\n\nPlease submit before the deadline."
+    )
+    for stu in students:
+        try:
+            send_mail(stu["email"], subject, body)
+        except Exception as e:
+            print(f"Mail to {stu['email']} failed: {e}")
+        
     return redirect(url_for('assignment.show_assignments'))
 
 # View single assignment details
@@ -293,7 +307,7 @@ def submit_assignment(assignment_id):
             readme_content=readme_content
         )
     
-    return redirect(url_for('assignment.view_assignment', assignment_id=assignment_id))
+    return redirect(url_for('assignment.show_assignments', assignment_id=assignment_id))
 
 # Teacher grading and feedback
 @assignment_bp.route('/submissions/<submission_id>/grade', methods=["POST"])
@@ -517,6 +531,7 @@ def delete_assignment(assignment_id):
     else:
         return "Failed to delete assignment", 500
     
+
 @assignment_bp.route('/assignments/<assignment_id>/preview/<path:file_path>')
 def preview_assignment_file(assignment_id, file_path):
     """
@@ -722,3 +737,197 @@ def browse_assignment_files(assignment_id):
                               
     except Exception as e:
         return f"Error accessing repository: {str(e)}", 400
+
+# Student repository file browser
+@assignment_bp.route('/assignments/<assignment_id>/select-file')
+def select_submission_file(assignment_id):
+    """Browse student's repository to select a Markdown file for submission"""
+    if not session.get("username") or session.get("identity") != "student":
+        return redirect(url_for('home'))
+        
+    assignment = assignment_model.get_assignment(assignment_id)
+    if not assignment:
+        return "Assignment not found", 404
+    
+    # Get student's GitHub information
+    github_info = github_accounts.find_one({"username": session.get("username")})
+    if not github_info or not github_info.get("repo"):
+        return "You need to link a GitHub repository first", 400
+    
+    # Get repository access token
+    access_token = github_info["access_token"]
+    repo_path = github_info["repo"]
+    
+    # Parse repository information
+    owner, repo = repo_path.split("/")
+    
+    # Determine path to browse (from query param)
+    browse_path = request.args.get('path', '')
+    
+    # If it's a direct file, check if it's a markdown file
+    if browse_path and is_repo_path_file(owner, repo, access_token, browse_path):
+        if browse_path.lower().endswith(('.md', '.markdown')):
+            # Allow direct submission
+            return redirect(url_for('assignment.submit_markdown_assignment', 
+                                 assignment_id=assignment_id, 
+                                 markdown_path=browse_path))
+        else:
+            # Not a markdown file - redirect back to folder view
+            parent_path = '/'.join(browse_path.split('/')[:-1])
+            return redirect(url_for('assignment.select_submission_file',
+                                  assignment_id=assignment_id,
+                                  path=parent_path))
+    
+    # Get contents of path
+    try:
+        contents = get_repo_contents(owner, repo, access_token, browse_path)
+        
+        # Handle single file response case
+        if not isinstance(contents, list):
+            contents = [contents]
+            
+        # Format contents for display
+        formatted_contents = []
+        for item in contents:
+            content_item = {
+                "name": item["name"],
+                "path": item["path"],
+                "type": item["type"],
+                "size": item.get("size", 0),
+                "download_url": item.get("download_url"),
+                "url": item["url"]
+            }
+            formatted_contents.append(content_item)
+            
+        # Sort by type and name
+        formatted_contents.sort(key=lambda x: (0 if x["type"] == "dir" else 1, x["name"]))
+        
+        # Compute breadcrumb paths
+        breadcrumbs = []
+        if browse_path:
+            current_path = ""
+            parts = browse_path.split('/')
+            for i, part in enumerate(parts):
+                if i > 0:
+                    current_path += "/"
+                current_path += part
+                breadcrumbs.append({
+                    "name": part,
+                    "path": current_path
+                })
+        
+        return render_template('student_repo_browser.html',
+                              assignment=assignment,
+                              contents=formatted_contents,
+                              current_path=browse_path,
+                              breadcrumbs=breadcrumbs,
+                              username=session.get("username"),
+                              identity=session.get("identity"))
+                              
+    except Exception as e:
+        return f"Error accessing repository: {str(e)}", 400
+
+# Submit assignment using selected markdown file
+@assignment_bp.route('/assignments/<assignment_id>/submit-markdown', methods=["GET", "POST"])
+def submit_markdown_assignment(assignment_id):
+    """Submit assignment using a markdown file from the student's repository"""
+    if not session.get("username") or session.get("identity") != "student":
+        return redirect(url_for('home'))
+        
+    # This route can be accessed directly with GET (preview) or POST (submit)
+    if request.method == "POST":
+        markdown_path = request.form.get("markdown_path")
+    else:
+        markdown_path = request.args.get("markdown_path")
+        
+    if not markdown_path:
+        return "No markdown file selected", 400
+    
+    # Get assignment
+    assignment = assignment_model.get_assignment(assignment_id)
+    if not assignment:
+        return "Assignment not found", 404
+    
+    # Get student's GitHub information
+    github_info = github_accounts.find_one({"username": session.get("username")})
+    if not github_info or not github_info.get("repo"):
+        return "You need to link a GitHub repository first", 400
+    
+    # Get repository access token and info
+    access_token = github_info["access_token"]
+    repo_path = github_info["repo"]
+    
+    # Parse repository information
+    owner, repo = repo_path.split("/")
+    
+    # Create the GitHub repository URL
+    github_repo_url = f"https://github.com/{repo_path}"
+    
+    # Get student ID
+    student = users.find_one({"username": session.get("username")})
+    if not student:
+        return "User not found", 404
+        
+    student_id = str(student["_id"])
+    
+    try:
+        # Check if path is a valid markdown file
+        if not is_repo_path_file(owner, repo, access_token, markdown_path):
+            return "Invalid file path", 400
+            
+        if not markdown_path.lower().endswith(('.md', '.markdown')):
+            return "Selected file is not a markdown file", 400
+        
+        # Get markdown content
+        headers = {
+            "Authorization": f"token {access_token}",
+            "Accept": "application/vnd.github.v3.raw"
+        }
+        api_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{markdown_path}"
+        response = requests.get(api_url, headers=headers)
+        
+        if response.status_code != 200:
+            return f"Error fetching file: {response.status_code}", 404
+            
+        readme_content = response.content.decode('utf-8')
+        
+        # If GET method, show preview before submission
+        if request.method == "GET":
+            return render_template('markdown_preview_submission.html',
+                                  assignment=assignment,
+                                  markdown_path=markdown_path,
+                                  markdown_content=readme_content,
+                                  username=session.get("username"),
+                                  identity=session.get("identity"))
+        
+        # If POST method, submit the assignment
+        # Check if already submitted
+        existing_submission = submission_model.get_student_assignment_submission(student_id, assignment_id)
+        
+        # Create file URL for direct linking
+        file_url = f"https://github.com/{repo_path}/blob/main/{markdown_path}"
+        
+        if existing_submission:
+            # Update submission
+            submission_model.update_submission(
+                str(existing_submission["_id"]),
+                {
+                    "github_link": file_url,
+                    "readme_content": readme_content,
+                    "submitted_at": datetime.now(),
+                    "status": "submitted"
+                }
+            )
+        else:
+            # Create new submission
+            submission_model.create_submission(
+                student_id=student_id,
+                assignment_id=assignment_id,
+                github_link=file_url,
+                readme_content=readme_content
+            )
+        
+        return redirect(url_for('assignment.view_assignment', assignment_id=assignment_id))
+        
+    except Exception as e:
+        return f"Error processing markdown file: {str(e)}", 500

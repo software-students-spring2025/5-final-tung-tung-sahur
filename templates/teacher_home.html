@@ -15,13 +15,15 @@
             <h5>Connected GitHub Account</h5>
             <p><strong>GitHub Username:</strong> {{ github_info.github_login }}</p>
             {% if github_info.repo %}
-            <p><strong>Selected Repository:</strong> <a href="{{ github_info.repo_url }}" target="_blank">{{ github_info.repo }}</a>
+            <p><strong>Selected Repository:</strong> <a href="{{ github_info.repo_url }}" target="_blank">{{
+                    github_info.repo }}</a>
             </p>
             <a href="{{ url_for('github.github_repo_unlink') }}" class="btn btn-sm btn-warning mr-2">
                 <i class="fas fa-unlink"></i> Change Repository
             </a>
             {% else %}
-            <p><strong>You haven't selected a repository</strong> - <a href="{{ url_for('github.github_repo_link') }}">Select Repository</a></p>
+            <p><strong>You haven't selected a repository</strong> - <a
+                    href="{{ url_for('github.github_repo_link') }}">Select Repository</a></p>
             {% endif %}
             <a href="{{ url_for('github.github_unlink') }}" class="btn btn-sm btn-outline-danger">
                 <i class="fas fa-trash-alt"></i> Unlink GitHub Account
@@ -29,9 +31,35 @@
         </div>
         {% else %}
         <div class="alert alert-warning">
-            <h5>You need to connect your GitHub account to fully utilize the features of this platform. After connecting, you can share course materials and assignment code.</h5>
+            <h5>You need to connect your GitHub account to fully utilize the features of this platform. After
+                connecting, you can share course materials and assignment code.</h5>
             <p>Please connect your GitHub account to access all features.</p>
             <a href="{{ url_for('github.github_link') }}" class="btn btn-primary">Connect GitHub Account</a>
+        </div>
+        {% endif %}
+
+
+        <div class="mt-4">
+            <a href="{{ url_for('assignment.create_assignment') }}" class="btn btn-primary btn-lg mr-3">
+                <i class="fas fa-plus-circle"></i> Create New Assignment
+            </a>
+            <a href="{{ url_for('assignment.show_assignments') }}" class="btn btn-info btn-lg">
+                <i class="fas fa-list"></i> View My Assignments
+            </a>
+        </div>
+        {% if not user.email %}
+        <div class="alert alert-warning mt-4">
+            No e-mail linked.
+            <a href="{{ url_for('email.email_link') }}" class="btn btn-sm btn-primary ms-2">
+                Bind e-mail
+            </a>
+        </div>
+        {% else %}
+        <div class="alert alert-success mt-4 d-flex justify-content-between align-items-center">
+            <span>E-mail: {{ user.email }}</span>
+            <a href="{{ url_for('email.email_link') }}" class="btn btn-sm btn-outline-light">
+                Change
+            </a>
         </div>
         {% endif %}
 

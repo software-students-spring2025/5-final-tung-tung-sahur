@@ -24,16 +24,7 @@
         </div>
         <div class="card-body">
             <h5>Description</h5>
-            <div class="mb-4">{{ assignment.description }}</div>
-
-            {% if assignment.github_repo_url %}
-            <div class="alert alert-info">
-                <h5>Reference GitHub Repository</h5>
-                <a href="{{ assignment.github_repo_url }}" target="_blank" class="btn btn-sm btn-outline-primary">
-                    <i class="fab fa-github"></i> View GitHub Repository
-                </a>
-            </div>
-            {% endif %}
+            <div class="mb-0">{{ assignment.description }}</div>
         </div>
     </div>
 

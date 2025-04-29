@@ -136,21 +136,16 @@
 
             <div class="mt-4">
                 {% if identity == 'teacher' %}
-                <a href="{{ submission.github_link }}" target="_blank" class="btn btn-primary">
-                    <i class="fab fa-github"></i> View GitHub Repository
-                </a>
-                <button type="button" class="btn btn-info" data-toggle="modal" data-target="#gradeModal">
-                    {% if submission.status == 'graded' %}Modify Grade{% else %}Grade{% endif %}
-                </button>
-                {% else %}
-                <a href="{{ url_for('assignment.view_assignment', assignment_id=submission.assignment_id) }}"
-                    class="btn btn-primary">
-                    Assignment Details
-                </a>
+                    <a href="{{ submission.github_link }}" target="_blank" class="btn btn-primary">
+                        <i class="fab fa-github"></i> View GitHub Repository
+                    </a>
+                    <button type="button" class="btn btn-info" data-toggle="modal" data-target="#gradeModal">
+                        {% if submission.status == 'graded' %}Modify Grade{% else %}Grade{% endif %}
+                    </button>
                 {% endif %}
                 <a href="{{ url_for('assignment.view_assignment', assignment_id=submission.assignment_id) }}"
-                    class="btn btn-secondary">
-                    Assignment Details
+                   class="btn btn-secondary">
+                   <i class="fas fa-arrow-left mr-1"></i> Back to Assignment
                 </a>
             </div>
 
@@ -213,18 +208,28 @@
             langPrefix: 'hljs language-',
             pedantic: false,
             gfm: true,
-            breaks: false,
+            breaks: true,
             sanitize: false,
-            smartypants: false,
+            smartypants: true,
             xhtml: false
         });
-
+    
         // Get raw Markdown content
         const rawMarkdown = document.getElementById('raw-markdown').textContent;
-
+    
         // Render Markdown
         const markdownContainer = document.getElementById('markdown-container');
         markdownContainer.innerHTML = marked.parse(rawMarkdown);
+        
+        // Apply syntax highlighting to code blocks
+        document.querySelectorAll('pre code').forEach((block) => {
+            hljs.highlightBlock(block);
+        });
+        
+        // Add target="_blank" to links
+        document.querySelectorAll('#markdown-container a').forEach((link) => {
+            link.setAttribute('target', '_blank');
+        });
     });
 </script>
 {% endblock %}
