@@ -3,12 +3,14 @@ import requests
 import zipfile
 from io import BytesIO
 from datetime import datetime
-from flask import Blueprint, render_template, request, session, redirect, url_for, jsonify, send_file
+from flask import Blueprint, render_template, request, session, redirect, url_for, jsonify, send_file, Response
 from bson.objectid import ObjectId
 from pymongo import MongoClient
 from models.assignment import AssignmentModel
 from models.submission import SubmissionModel
 from dotenv import load_dotenv
+import base64
+import mimetypes
 # Import shared GitHub functions
 from .githubRoute import get_repo_contents, is_repo_path_file
 
@@ -516,44 +518,168 @@ def delete_assignment(assignment_id):
         return "Failed to delete assignment", 500
     
 
-# Select file from GitHub repository (Student only)
-@assignment_bp.route('/submissions/select_file')
-def select_submission_file():
-    if not session.get("username") or session.get("identity") != "student":
-        return redirect(url_for('home'))
-        
-    # Get current student's GitHub account info
-    github_info = github_accounts.find_one({"username": session.get("username")})
-    if not github_info or not github_info.get("repo"):
-        return "No GitHub repository linked", 400
-    
-    # Get assignment ID
-    assignment_id = request.args.get("assignment_id")
-    if not assignment_id:
-        return "Missing assignment ID", 400
+@assignment_bp.route('/assignments/<assignment_id>/preview/<path:file_path>')
+def preview_assignment_file(assignment_id, file_path):
+    """
+    Preview a file from GitHub without storing it on the server.
+    Handles different file types including markdown, code files, and PDFs.
+    """
+    if not session.get("username"):
+        return redirect(url_for('login'))
         
     # Get assignment details
     assignment = assignment_model.get_assignment(assignment_id)
     if not assignment:
         return "Assignment not found", 404
+        
+    # Get GitHub repository information from the assignment or teacher
+    github_repo_path = assignment.get("github_repo_path", "")
     
-    # Get optional path parameter
-    path = request.args.get("path", "")
-    
-    # Get repo content from GitHub
+    # Get teacher's GitHub access token
+    teacher = users.find_one({"_id": ObjectId(assignment["teacher_id"])})
+    if not teacher:
+        return "Teacher not found", 404
+        
+    teacher_username = teacher.get("username")
+    github_info = github_accounts.find_one({"username": teacher_username})
+    if not github_info or not github_info.get("access_token"):
+        return "Teacher GitHub account not linked or missing access token", 400
+        
     access_token = github_info["access_token"]
-    repo_path = github_info["repo"]  # Format: "username/repo"
+    
+    # Get repository owner and name
+    repo_path = github_info.get("repo")
+    if not repo_path:
+        return "No repository linked", 400
+        
     owner, repo = repo_path.split("/")
     
-    try:
-        # Use existing function to get repo contents
-        contents = get_repo_contents(owner, repo, access_token, path)
+    # Determine the full path to the file in the repository
+    # If we're viewing a specific file within a directory
+    if github_repo_path and not file_path.startswith(github_repo_path):
+        full_path = f"{github_repo_path}/{file_path}"
+    else:
+        full_path = file_path
+    
+    # Make a request to the GitHub API to get the file content
+    headers = {
+        "Authorization": f"token {access_token}",
+        "Accept": "application/vnd.github.v3.raw"
+    }
+    
+    # Get file content via GitHub API
+    api_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{full_path}"
+    response = requests.get(api_url, headers=headers)
+    
+    if response.status_code != 200:
+        return f"Error fetching file: {response.status_code}", 404
+    
+    # Detect file type based on extension
+    file_extension = os.path.splitext(file_path)[1].lower()
+    
+    # Get the file content
+    file_content = response.content
+    
+    # Handle different file types
+    if file_extension in ['.md', '.markdown']:
+        # For markdown, we'll render it with GitHub styling
+        # First, get content as text
+        content_text = file_content.decode('utf-8')
         
-        # Handle single file response
+        # Render markdown template with the content
+        return render_template('preview_markdown.html', 
+                              content=content_text,
+                              file_name=os.path.basename(file_path),
+                              assignment=assignment,
+                              username=session.get("username"),
+                              identity=session.get("identity"))
+                              
+    elif file_extension in ['.py', '.c', '.cpp', '.h', '.js', '.html', '.css', '.java']:
+        # For code files, show with syntax highlighting
+        content_text = file_content.decode('utf-8')
+        
+        return render_template('preview_code.html',
+                              content=content_text,
+                              file_name=os.path.basename(file_path),
+                              language=file_extension[1:],  # Remove the dot from extension
+                              assignment=assignment,
+                              username=session.get("username"),
+                              identity=session.get("identity"))
+                              
+    elif file_extension == '.pdf':
+        # For PDFs, we can embed using an iframe or object tag
+        # Create a data URI for the PDF content
+        pdf_base64 = base64.b64encode(file_content).decode('utf-8')
+        pdf_data_uri = f"data:application/pdf;base64,{pdf_base64}"
+        
+        return render_template('preview_pdf.html',
+                              pdf_data=pdf_data_uri,
+                              file_name=os.path.basename(file_path),
+                              assignment=assignment,
+                              username=session.get("username"),
+                              identity=session.get("identity"))
+    else:
+        # For unsupported file types, prompt download
+        content_type = mimetypes.guess_type(file_path)[0] or 'application/octet-stream'
+        return Response(
+            file_content,
+            headers={
+                'Content-Type': content_type,
+                'Content-Disposition': f'attachment; filename={os.path.basename(file_path)}'
+            }
+        )
+
+# Add a route to browse assignment files
+@assignment_bp.route('/assignments/<assignment_id>/browse')
+def browse_assignment_files(assignment_id):
+    """Browse the files of an assignment"""
+    if not session.get("username"):
+        return redirect(url_for('login'))
+        
+    assignment = assignment_model.get_assignment(assignment_id)
+    if not assignment:
+        return "Assignment not found", 404
+        
+    # Get GitHub repository information
+    github_repo_path = assignment.get("github_repo_path", "")
+    
+    # Get teacher's GitHub access token
+    teacher = users.find_one({"_id": ObjectId(assignment["teacher_id"])})
+    if not teacher:
+        return "Teacher not found", 404
+        
+    teacher_username = teacher.get("username")
+    github_info = github_accounts.find_one({"username": teacher_username})
+    if not github_info or not github_info.get("access_token"):
+        return "Teacher GitHub account not linked or missing access token", 400
+        
+    access_token = github_info["access_token"]
+    
+    # Get repository owner and name
+    repo_path = github_info.get("repo")
+    if not repo_path:
+        return "No repository linked", 400
+        
+    owner, repo = repo_path.split("/")
+    
+    # Determine path to browse (from query param or from assignment)
+    browse_path = request.args.get('path', github_repo_path)
+    
+    # If it's a direct file, redirect to preview
+    if browse_path and is_repo_path_file(owner, repo, access_token, browse_path):
+        return redirect(url_for('assignment.preview_assignment_file', 
+                               assignment_id=assignment_id, 
+                               file_path=browse_path))
+    
+    # Get contents of path
+    try:
+        contents = get_repo_contents(owner, repo, access_token, browse_path)
+        
+        # Handle single file response case
         if not isinstance(contents, list):
             contents = [contents]
-        
-        # Format content for display
+            
+        # Format contents for display
         formatted_contents = []
         for item in contents:
             content_item = {
@@ -561,19 +687,19 @@ def select_submission_file():
                 "path": item["path"],
                 "type": item["type"],
                 "size": item.get("size", 0),
-                "download_url": item.get("download_url", ""),
+                "download_url": item.get("download_url"),
                 "url": item["url"]
             }
             formatted_contents.append(content_item)
-        
-        # Sort: directories first, then by name
+            
+        # Sort by type and name
         formatted_contents.sort(key=lambda x: (0 if x["type"] == "dir" else 1, x["name"]))
         
-        # Create breadcrumb paths
+        # Compute breadcrumb paths
         breadcrumbs = []
-        if path:
+        if browse_path:
             current_path = ""
-            parts = path.split('/')
+            parts = browse_path.split('/')
             for i, part in enumerate(parts):
                 if i > 0:
                     current_path += "/"
@@ -583,90 +709,14 @@ def select_submission_file():
                     "path": current_path
                 })
         
-        return render_template('student_repo_browser.html',
+        return render_template('browse_assignment_files.html',
                               assignment=assignment,
                               contents=formatted_contents,
-                              current_path=path,
+                              current_path=browse_path,
                               breadcrumbs=breadcrumbs,
-                              github_info=github_info,
+                              base_path=github_repo_path,
                               username=session.get("username"),
                               identity=session.get("identity"))
                               
     except Exception as e:
         return f"Error accessing repository: {str(e)}", 400
-    
-    
-# Student submission of Markdown file
-@assignment_bp.route('/submissions/<assignment_id>/submit_markdown', methods=["POST"])
-def submit_markdown_assignment(assignment_id):
-    if not session.get("username") or session.get("identity") != "student":
-        return redirect(url_for('home'))
-    
-    # Get form data
-    markdown_path = request.form.get("markdown_path")
-    
-    if not markdown_path:
-        return "No Markdown file selected", 400
-    
-    # Check file extension
-    if not markdown_path.lower().endswith(('.md', '.markdown')):
-        return "Only Markdown files are allowed", 400
-    
-    # Get student ID
-    student = users.find_one({"username": session.get("username")})
-    if not student:
-        return "User not found", 404
-    
-    student_id = str(student["_id"])
-    
-    # Get file content from GitHub
-    github_info = github_accounts.find_one({"username": session.get("username")})
-    if not github_info or not github_info.get("repo"):
-        return "No GitHub repository linked", 400
-    
-    access_token = github_info["access_token"]
-    repo_path = github_info["repo"]
-    owner, repo = repo_path.split("/")
-    
-    # Get Markdown file content
-    try:
-        headers = {
-            "Authorization": f"token {access_token}",
-            "Accept": "application/vnd.github.v3.raw"
-        }
-        api_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{markdown_path}"
-        response = requests.get(api_url, headers=headers)
-        
-        if response.status_code != 200:
-            return f"Failed to get file content: {response.status_code}", 400
-        
-        markdown_content = response.content.decode('utf-8')
-        github_link = f"https://github.com/{repo_path}/blob/main/{markdown_path}"
-        
-        # Check if already submitted
-        existing_submission = submission_model.get_student_assignment_submission(student_id, assignment_id)
-        if existing_submission:
-            # Update submission
-            submission_model.update_submission(
-                str(existing_submission["_id"]),
-                {
-                    "github_link": github_link,
-                    "readme_content": markdown_content,
-                    "markdown_path": markdown_path,
-                    "submitted_at": datetime.now(),
-                    "status": "submitted"
-                }
-            )
-        else:
-            # Create new submission
-            submission_model.create_submission(
-                student_id=student_id,
-                assignment_id=assignment_id,
-                github_link=github_link,
-                readme_content=markdown_content
-            )
-        
-        return redirect(url_for('assignment.view_assignment', assignment_id=assignment_id))
-        
-    except Exception as e:
-        return f"Error submitting assignment: {str(e)}", 500

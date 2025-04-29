@@ -65,9 +65,14 @@
                             {% endif %}
                         </a>
                         {% if assignment.github_repo_url %}
-                        <a href="{{ url_for('assignment.download_assignment', assignment_id=assignment._id) }}" class="btn btn-outline-primary">
-                            <i class="fas fa-download"></i> Download assignment questions
-                        </a>
+                        <div class="btn-group mt-2 w-100">
+                            <a href="{{ url_for('assignment.browse_assignment_files', assignment_id=assignment._id) }}" class="btn btn-outline-info">
+                                <i class="fas fa-folder-open"></i> Browse Files
+                            </a>
+                            <a href="{{ url_for('assignment.download_assignment', assignment_id=assignment._id) }}" class="btn btn-outline-primary">
+                                <i class="fas fa-download"></i> Download Files
+                            </a>
+                        </div>
                         {% endif %}
                     </div>
                 </div>

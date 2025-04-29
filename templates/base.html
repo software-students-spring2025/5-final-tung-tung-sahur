@@ -6,49 +6,68 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}DarkSpace{% endblock %}</title>
 
+    <!-- Local CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/fa.min.css') }}">
 
     <style>
         :root {
-            --bg-main: #121212;
-            --fg-main: #e6e6e6;
+            /* colors */
+            --bg-main: #ffffff;
+            --fg-main: #212529;
             --accent: #0d6efd;
-            --card: #1e1e1e;
-            --card-border: #333;
+            --nav-bg: #1a1a1a;
+            --footer-bg: #1a1a1a;
+            --card-bg: #ffffff;
+            --card-border: #e1e1e1;
         }
 
+        /* global */
         body {
             background: var(--bg-main);
             color: var(--fg-main);
         }
 
+        /* navbar */
         .navbar {
-            background: #1a1a1a !important;
+            background: var(--nav-bg) !important;
         }
 
         .navbar-brand,
         .nav-link {
-            color: var(--fg-main) !important;
+            color: var(--bg-main) !important;
         }
 
         .nav-link:hover {
             color: var(--accent) !important;
         }
 
+        .navbar-brand img {
+            width: 64px;
+            height: 64px;
+        }
+
+        /* buttons */
         .btn-primary {
             background: var(--accent);
             border: none;
         }
 
+        /* cards / content boxes */
         .card {
-            background: var(--card);
+            background: var(--card-bg);
             border: 1px solid var(--card-border);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, .08);
         }
 
+        /* footer */
         .footer {
-            background: #1a1a1a;
+            background: var(--footer-bg);
             border-top: 1px solid #333;
+        }
+
+        .footer .text-muted {
+            color: #adb5bd !important;
         }
     </style>
     {% block extra_css %}{% endblock %}
@@ -59,8 +78,7 @@
     <nav class="navbar navbar-expand-lg">
         <div class="container">
             <a class="navbar-brand d-flex align-items-center" href="{{ url_for('home') }}">
-                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="logo" width="32" height="32"
-                    class="mr-2">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="logo" class="mr-2">
                 DarkSpace
             </a>
             <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
@@ -120,6 +138,8 @@
     <footer class="footer text-center py-3">
         <span class="text-muted">© 2025 DarkSpace – A Bridge Between GitHub and Brightspace</span>
     </footer>
+
+    <!-- Local JS -->
     <script src="{{ url_for('static', filename='js/jquery-3.7.1.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
     {% block extra_js %}{% endblock %}
