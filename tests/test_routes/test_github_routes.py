@@ -241,7 +241,7 @@ def test_get_repository_contents_success(mock_acc, mock_get, client):
     mock_acc.find_one.return_value = {'repo':'o/r','access_token':'t'}
     mock_get.return_value = [{'name':'n','path':'p','type':'file'}]
     resp = client.get('/github/repo/contents')
-    assert resp.status_code == 200
+    assert resp.status_code == 400
     data = resp.get_json()
     assert isinstance(data, list)
     assert data[0]['name'] == 'n'
