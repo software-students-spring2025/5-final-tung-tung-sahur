@@ -221,7 +221,8 @@ def login():
             session["identity"] = user.get("identity", "student")  #student as default
             return redirect(url_for('home'))
 
-        return "Username or password is incorrect"
+        flash("Invalid username or password", "danger")   # category=Bootstrap style
+        return redirect(url_for("login"))
 
     return render_template("login.html")
 
