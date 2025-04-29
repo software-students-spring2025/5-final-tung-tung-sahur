@@ -6,15 +6,7 @@ FROM_EMAIL   = "13601583609@163.com"
 SMTP_SERVER  = "smtp.163.com"
 SMTP_PORT    = 465
 SMTP_LOGIN   = "13601583609@163.com"
-SMTP_PASS    = os.getenv("163_password")          # keep secret in .en
-import os, smtplib, ssl
-from email.message import EmailMessage
-
-FROM_EMAIL   = "13601583609@163.com"
-SMTP_SERVER  = "smtp.163.com"
-SMTP_PORT    = 465
-SMTP_LOGIN   = "13601583609@163.com"
-SMTP_PASS    = os.getenv("163_password")          # keep secret in .env
+SMTP_PASS    = os.getenv("Email_password")          # keep secret in .env
 
 def send_mail(to_addr: str, subject: str, body: str) -> None:
     msg             = EmailMessage()
