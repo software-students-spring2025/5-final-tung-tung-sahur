@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Files: {{ assignment.title }}{% endblock %}
+{% block title %}Files: {{ content_item.title }}{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -59,7 +59,7 @@
     }
     
     .file-size {
-        color: #cccccc;
+        color: #6c757d;
         font-size: 0.875rem;
         margin-left: 8px;
     }
@@ -78,29 +78,29 @@
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="{{ url_for('home') }}">Home</a></li>
-            <li class="breadcrumb-item"><a href="{{ url_for('assignment.show_assignments') }}">Assignments</a></li>
-            <li class="breadcrumb-item"><a href="{{ url_for('assignment.view_assignment', assignment_id=assignment._id) }}">{{ assignment.title }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('content.show_content') }}">Lecture Materials</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('content.view_content', content_id=content_item._id) }}">{{ content_item.title }}</a></li>
             <li class="breadcrumb-item active">Files</li>
         </ol>
     </nav>
 
     <div class="card mb-4">
         <div class="card-header">
-            <h3>Assignment Files: {{ assignment.title }}</h3>
+            <h3>Material Files: {{ content_item.title }}</h3>
         </div>
         <div class="card-body">
-            <p>{{ assignment.description|truncate(200) }}</p>
+            <p>{{ content_item.description|truncate(200) }}</p>
             
             <div class="directory-info">
                 <h5><i class="fas fa-info-circle mr-2"></i> Repository Information</h5>
-                <p class="mb-0">Browsing files from the teacher's GitHub repository. You can preview or download files to understand the assignment requirements.</p>
+                <p class="mb-0">Browsing files from the teacher's GitHub repository. You can preview or download files to access the lecture materials.</p>
             </div>
             
             <div class="file-browser">
                 <div class="file-browser-header">
                     <ol class="breadcrumb file-browser-breadcrumb">
                         <li class="breadcrumb-item">
-                            <a href="{{ url_for('assignment.browse_assignment_files', assignment_id=assignment._id) }}">
+                            <a href="{{ url_for('content.browse_content_files', content_id=content_item._id) }}">
                                 <i class="fas fa-home mr-1"></i> Root
                             </a>
                         </li>
@@ -109,7 +109,7 @@
                                 <li class="breadcrumb-item active" style="color: #ffffff;">{{ crumb.name }}</li>
                             {% else %}
                                 <li class="breadcrumb-item">
-                                    <a href="{{ url_for('assignment.browse_assignment_files', assignment_id=assignment._id, path=crumb.path) }}">
+                                    <a href="{{ url_for('content.browse_content_files', content_id=content_item._id, path=crumb.path) }}">
                                         {{ crumb.name }}
                                     </a>
                                 </li>
@@ -121,7 +121,7 @@
                 <!-- If we're in a subdirectory, show the "parent directory" link -->
                 {% if current_path %}
                     {% set parent_path = current_path.rsplit('/', 1)[0] if '/' in current_path else '' %}
-                    <a href="{{ url_for('assignment.browse_assignment_files', assignment_id=assignment._id, path=parent_path) }}" class="file-browser-item">
+                    <a href="{{ url_for('content.browse_content_files', content_id=content_item._id, path=parent_path) }}" class="file-browser-item">
                         <div class="file-icon">
                             <i class="fas fa-arrow-up"></i>
                         </div>
@@ -132,7 +132,7 @@
                 <!-- List directories first -->
                 {% for item in contents %}
                     {% if item.type == 'dir' %}
-                        <a href="{{ url_for('assignment.browse_assignment_files', assignment_id=assignment._id, path=item.path) }}" class="file-browser-item">
+                        <a href="{{ url_for('content.browse_content_files', content_id=content_item._id, path=item.path) }}" class="file-browser-item">
                             <div class="file-icon">
                                 <i class="fas fa-folder text-warning"></i>
                             </div>
@@ -170,7 +170,7 @@
                             {% set icon_class = 'fas fa-file text-light' %}
                         {% endif %}
                         
-                        <a href="{{ url_for('assignment.preview_assignment_file', assignment_id=assignment._id, file_path=item.path) }}" class="file-browser-item">
+                        <a href="{{ url_for('content.preview_content_file', content_id=content_item._id, file_path=item.path) }}" class="file-browser-item">
                             <div class="file-icon">
                                 <i class="{{ icon_class }}"></i>
                             </div>
@@ -190,10 +190,10 @@
             </div>
             
             <div class="mt-4">
-                <a href="{{ url_for('assignment.view_assignment', assignment_id=assignment._id) }}" class="btn btn-secondary">
-                    <i class="fas fa-arrow-left mr-1"></i> Back to Assignment
+                <a href="{{ url_for('content.view_content', content_id=content_item._id) }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left mr-1"></i> Back to Material
                 </a>
-                <a href="{{ url_for('assignment.download_assignment', assignment_id=assignment._id) }}" class="btn btn-primary">
+                <a href="{{ url_for('content.download_content', content_id=content_item._id) }}" class="btn btn-primary">
                     <i class="fas fa-download mr-1"></i> Download All Files
                 </a>
             </div>
