@@ -13,23 +13,22 @@ class TestChatRoutes:
         app.config['TESTING'] = True
         return app
 
-    @pytest.fixture
-    def client(self, app):
-        return app.test_client()
-
-    @patch('routes.chatRoute.ChatModel')
-    @patch('routes.chatRoute.UserModel')
-    def test_chat_with_post(self, mock_um, mock_cm, client, mock_mongo):
-        mock_client, mock_db = mock_mongo
-        mock_um.return_value.find_by_username.return_value = {"username": "user2"}
-        mock_cm.return_value.send_message.return_value = "msgid"
+    @patch('routes.chatRoute.chat_model')
+    @patch('routes.chatRoute.user_model')
+    def test_chat_with_post(self, mock_user_model, mock_chat_model, client):
+        # Arrange
+        mock_user_model.find_by_username.return_value = {"username": "user2"}
+        mock_chat_model.send_message.return_value = "msgid"
 
         with client.session_transaction() as sess:
             sess['username'] = 'user1'
 
-        rv = client.post('/chat/with/user2', data={"message": "Hi"})
-        assert rv.status_code == 302
-        assert rv.location.endswith("/chat/with/user2")
-        mock_cm.return_value.send_message.assert_called_once_with(
+        # Act
+        response = client.post('/chat/with/user2', data={"message": "Hi"})
+
+        # Assert
+        assert response.status_code == 302
+        assert response.location.endswith('/chat/with/user2')
+        mock_chat_model.send_message.assert_called_once_with(
             sender="user1", receiver="user2", content="Hi"
         )
