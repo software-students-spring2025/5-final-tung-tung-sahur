@@ -121,12 +121,11 @@ def home():
         github_info = github_accounts.find_one({"username": session["username"]})
         identity = session.get("identity", "student")
         user_doc = users.find_one({"username": session["username"]})
-        username=user_doc["username"]
-        user = users.find_one({"username": username})
-        if not user:
-            return "User not found", 404
             
-        user_id = str(user["_id"])
+        if user_doc:
+            user_id = str(user_doc["_id"])
+        else:
+            return redirect(url_for('login'))  # Redirect if user_doc is None
         
         # Get assignments based on user identity
         if identity == "teacher":
@@ -170,7 +169,7 @@ def home():
                     assignment['remaining_days'] = 7  # Default value
         
         return render_template("home.html", 
-                              username=username,
+                              username=session.get("username"),
                               user=user_doc,
                               identity=identity,
                               github_info=github_info,
