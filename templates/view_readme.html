@@ -213,18 +213,28 @@
             langPrefix: 'hljs language-',
             pedantic: false,
             gfm: true,
-            breaks: false,
+            breaks: true,
             sanitize: false,
-            smartypants: false,
+            smartypants: true,
             xhtml: false
         });
-
+    
         // Get raw Markdown content
         const rawMarkdown = document.getElementById('raw-markdown').textContent;
-
+    
         // Render Markdown
         const markdownContainer = document.getElementById('markdown-container');
         markdownContainer.innerHTML = marked.parse(rawMarkdown);
+        
+        // Apply syntax highlighting to code blocks
+        document.querySelectorAll('pre code').forEach((block) => {
+            hljs.highlightBlock(block);
+        });
+        
+        // Add target="_blank" to links
+        document.querySelectorAll('#markdown-container a').forEach((link) => {
+            link.setAttribute('target', '_blank');
+        });
     });
 </script>
 {% endblock %}

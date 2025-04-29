@@ -514,3 +514,159 @@ def delete_assignment(assignment_id):
         return redirect(url_for('assignment.show_assignments'))
     else:
         return "Failed to delete assignment", 500
+    
+
+# Select file from GitHub repository (Student only)
+@assignment_bp.route('/submissions/select_file')
+def select_submission_file():
+    if not session.get("username") or session.get("identity") != "student":
+        return redirect(url_for('home'))
+        
+    # Get current student's GitHub account info
+    github_info = github_accounts.find_one({"username": session.get("username")})
+    if not github_info or not github_info.get("repo"):
+        return "No GitHub repository linked", 400
+    
+    # Get assignment ID
+    assignment_id = request.args.get("assignment_id")
+    if not assignment_id:
+        return "Missing assignment ID", 400
+        
+    # Get assignment details
+    assignment = assignment_model.get_assignment(assignment_id)
+    if not assignment:
+        return "Assignment not found", 404
+    
+    # Get optional path parameter
+    path = request.args.get("path", "")
+    
+    # Get repo content from GitHub
+    access_token = github_info["access_token"]
+    repo_path = github_info["repo"]  # Format: "username/repo"
+    owner, repo = repo_path.split("/")
+    
+    try:
+        # Use existing function to get repo contents
+        contents = get_repo_contents(owner, repo, access_token, path)
+        
+        # Handle single file response
+        if not isinstance(contents, list):
+            contents = [contents]
+        
+        # Format content for display
+        formatted_contents = []
+        for item in contents:
+            content_item = {
+                "name": item["name"],
+                "path": item["path"],
+                "type": item["type"],
+                "size": item.get("size", 0),
+                "download_url": item.get("download_url", ""),
+                "url": item["url"]
+            }
+            formatted_contents.append(content_item)
+        
+        # Sort: directories first, then by name
+        formatted_contents.sort(key=lambda x: (0 if x["type"] == "dir" else 1, x["name"]))
+        
+        # Create breadcrumb paths
+        breadcrumbs = []
+        if path:
+            current_path = ""
+            parts = path.split('/')
+            for i, part in enumerate(parts):
+                if i > 0:
+                    current_path += "/"
+                current_path += part
+                breadcrumbs.append({
+                    "name": part,
+                    "path": current_path
+                })
+        
+        return render_template('student_repo_browser.html',
+                              assignment=assignment,
+                              contents=formatted_contents,
+                              current_path=path,
+                              breadcrumbs=breadcrumbs,
+                              github_info=github_info,
+                              username=session.get("username"),
+                              identity=session.get("identity"))
+                              
+    except Exception as e:
+        return f"Error accessing repository: {str(e)}", 400
+    
+    
+# Student submission of Markdown file
+@assignment_bp.route('/submissions/<assignment_id>/submit_markdown', methods=["POST"])
+def submit_markdown_assignment(assignment_id):
+    if not session.get("username") or session.get("identity") != "student":
+        return redirect(url_for('home'))
+    
+    # Get form data
+    markdown_path = request.form.get("markdown_path")
+    
+    if not markdown_path:
+        return "No Markdown file selected", 400
+    
+    # Check file extension
+    if not markdown_path.lower().endswith(('.md', '.markdown')):
+        return "Only Markdown files are allowed", 400
+    
+    # Get student ID
+    student = users.find_one({"username": session.get("username")})
+    if not student:
+        return "User not found", 404
+    
+    student_id = str(student["_id"])
+    
+    # Get file content from GitHub
+    github_info = github_accounts.find_one({"username": session.get("username")})
+    if not github_info or not github_info.get("repo"):
+        return "No GitHub repository linked", 400
+    
+    access_token = github_info["access_token"]
+    repo_path = github_info["repo"]
+    owner, repo = repo_path.split("/")
+    
+    # Get Markdown file content
+    try:
+        headers = {
+            "Authorization": f"token {access_token}",
+            "Accept": "application/vnd.github.v3.raw"
+        }
+        api_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{markdown_path}"
+        response = requests.get(api_url, headers=headers)
+        
+        if response.status_code != 200:
+            return f"Failed to get file content: {response.status_code}", 400
+        
+        markdown_content = response.content.decode('utf-8')
+        github_link = f"https://github.com/{repo_path}/blob/main/{markdown_path}"
+        
+        # Check if already submitted
+        existing_submission = submission_model.get_student_assignment_submission(student_id, assignment_id)
+        if existing_submission:
+            # Update submission
+            submission_model.update_submission(
+                str(existing_submission["_id"]),
+                {
+                    "github_link": github_link,
+                    "readme_content": markdown_content,
+                    "markdown_path": markdown_path,
+                    "submitted_at": datetime.now(),
+                    "status": "submitted"
+                }
+            )
+        else:
+            # Create new submission
+            submission_model.create_submission(
+                student_id=student_id,
+                assignment_id=assignment_id,
+                github_link=github_link,
+                readme_content=markdown_content
+            )
+        
+        return redirect(url_for('assignment.view_assignment', assignment_id=assignment_id))
+        
+    except Exception as e:
+        return f"Error submitting assignment: {str(e)}", 500
