@@ -118,8 +118,8 @@ def client(app):
 def session_data():
     return {"username": "testuser"}
 
-@patch("routes.github.requests.post")
-@patch("routes.github.requests.get")
+@patch("routes.githubRoute.requests.post")
+@patch("routes.githubRoute.requests.get")
 def test_github_callback_success(mock_get, mock_post, client, session_data):
     mock_post.return_value.json.return_value = {"access_token": "fake-token"}
     mock_get.return_value.json.return_value = {
@@ -147,7 +147,7 @@ def test_github_callback_missing_code(client):
     assert response.status_code == 400
     assert b"Missing code" in response.data
 
-@patch("routes.github.requests.get")
+@patch("routes.githubRoute.requests.get")
 def test_github_repo_link_success(mock_get, client, session_data):
     mock_get.return_value.json.return_value = [
         {"full_name": "testuser/repo1"},
@@ -162,7 +162,7 @@ def test_github_repo_link_success(mock_get, client, session_data):
     assert b"repo1" in response.data
     assert b"repo2" in response.data
 
-@patch("routes.github.get_repo_contents")
+@patch("routes.githubRoute.get_repo_contents")
 def test_get_repository_contents_success(mock_get_repo_contents, client, session_data):
     mock_get_repo_contents.return_value = [
         {
