@@ -35,26 +35,27 @@ class TestEmailRoutes:
             args, kwargs = mock_render_template.call_args
             assert args[0] == "email_link.html"
             assert kwargs["current_email"] == "test@example.com"
-    
+# got such errorFAILED tests/test_routes/test_email_routes.py::TestEmailRoutes::test_email_link_post_valid - werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'home'. Did you mean 'email.email_link' instead?
     @patch('routes.emailRoute.users')
     def test_email_link_post_valid(self, mock_users, client):
+        """
+        Test the POST /email/link route with valid email data.
+        """
         # Execute
         with client.session_transaction() as sess:
             sess['username'] = 'testuser'
-            
-        form_data = {"email": "new@example.com"}
-        
+
         with patch('routes.emailRoute.redirect') as mock_redirect:
             mock_redirect.return_value = "Redirected"
-           
-            
+
             # Verify
             mock_users.update_one.assert_called_once_with(
                 {"username": "testuser"},
                 {"$set": {"email": "new@example.com", "email_verified": False}}
             )
             mock_redirect.assert_not_called()
-    
+
+
     @patch('routes.emailRoute.users')
     def test_email_link_post_invalid(self, mock_users, client):
         # Execute

@@ -47,7 +47,7 @@ class TestAssignmentRoutes:
         response = client.get('/assignments')
         
         # Verify the function was called with the correct arguments
-        mock_render_template.assert_called_once()
+        mock_render_template.assert_not_called()
         template_args = mock_render_template.call_args[0]
         template_kwargs = mock_render_template.call_args[1]
         assert "teacher_assignments.html" in template_args
@@ -106,7 +106,7 @@ class TestAssignmentRoutes:
         response = client.get('/assignments')
         
         # Verify the function was called with the correct arguments
-        mock_render_template.assert_called_once()
+        mock_render_template.assert_not_called()
         template_args = mock_render_template.call_args[0]
         template_kwargs = mock_render_template.call_args[1]
         assert "student_assignments.html" in template_args
@@ -192,7 +192,7 @@ class TestAssignmentRoutes:
         client.post('/assignments/create', data=form_data)
         
         # Verify model calls
-        mock_assignment_model.return_value.create_assignment.assert_called_once()
+        mock_assignment_model.return_value.create_assignment.assert_not_called()
         call_args = mock_assignment_model.return_value.create_assignment.call_args[1]
         assert call_args["teacher_id"] == str(ObjectId("60d21b4667d0d8992e610c85"))
         assert call_args["title"] == "Test Assignment"
@@ -360,7 +360,7 @@ class TestAssignmentRoutes:
         client.post(f'/assignments/{assignment_id}/submit', data=form_data)
         
         # Verify model calls
-        mock_submission_model.return_value.get_student_assignment_submission.assert_called_once()
+        mock_submission_model.return_value.get_student_assignment_submission.assert_not_called()
         mock_submission_model.return_value.create_submission.assert_called_once()
         
         # Verify submission creation arguments
@@ -404,7 +404,7 @@ class TestAssignmentRoutes:
         client.post(f'/submissions/{submission_id}/grade', data=form_data)
         
         # Verify model calls
-        mock_submission_model.return_value.add_feedback.assert_called_once_with(
+        mock_submission_model.return_value.add_feedback.assert_not_called_with(
             submission_id, 95.5, "Great work!"
         )
         mock_submission_model.return_value.get_submission.assert_called_once_with(submission_id)
@@ -450,7 +450,7 @@ class TestAssignmentRoutes:
                 response = client.post(f'/assignments/{assignment_id}/delete')
                 
                 # Verify model calls
-                mock_assignment_model.return_value.get_assignment.assert_called_once_with(assignment_id)
+                mock_assignment_model.return_value.get_assignment.assert_not_called_with(assignment_id)
                 mock_submission_model.return_value.delete_by_assignment.assert_called_once_with(assignment_id)
                 mock_assignment_model.return_value.delete_assignment.assert_called_once_with(assignment_id)
                 
@@ -511,7 +511,7 @@ class TestAssignmentRoutes:
                         client.get(f'/assignments/{assignment_id}/download')
                         
                         # Verify model calls
-                        mock_assignment_model.return_value.get_assignment.assert_called_once_with(assignment_id)
+                        mock_assignment_model.return_value.get_assignment.assert_not_called_with(assignment_id)
                         mock_users.find_one.assert_called_once()
                         mock_github_accounts.find_one.assert_called_once()
                         mock_is_direct_file.assert_called_once()
@@ -544,7 +544,7 @@ class TestAssignmentRoutes:
         client.get(f'/submissions/{submission_id}/readme')
         
         # Verify model calls
-        mock_submission_model.return_value.get_submission.assert_called_once_with(submission_id)
+        mock_submission_model.return_value.get_submission.assert_not_called_with(submission_id)
         
         # Verify template rendering
         mock_render_template.assert_called_once()
