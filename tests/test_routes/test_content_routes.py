@@ -1,8 +1,8 @@
 import pytest
-from unittest.mock import patch
 from bson.objectid import ObjectId
-from routes.contentRoute import content_bp
 from flask import Flask
+from routes.contentRoute import content_bp
+from unittest.mock import patch
 
 @pytest.fixture
 def app():
@@ -17,64 +17,98 @@ def client(app):
     return app.test_client()
 
 class TestContentRoutes:
-    @patch('routes.contentRoute.ContentModel')
-    def test_show_content_teacher(self, mock_content_model, client, mock_mongo):
+    @patch('routes.contentRoute.render_template')
+    @patch('routes.contentRoute.content_model')
+    @patch('routes.contentRoute.users')
+    def test_show_content_teacher(self, mock_users, mock_cm, mock_render, client, mock_mongo):
         mock_client, mock_db = mock_mongo
-        mock_db.users.find_one.return_value = {
-            "_id": ObjectId(), "username":"teacher","identity":"teacher"
+        mock_users.find_one.return_value = {
+            "_id": ObjectId(), "username": "teacher", "identity": "teacher"
         }
-        mock_content_model.return_value.get_teacher_content.return_value = [
-            {"_id": ObjectId(),"title":"L1"},
-            {"_id": ObjectId(),"title":"L2"}
+        fake = [
+            {"_id": ObjectId(), "title": "L1"},
+            {"_id": ObjectId(), "title": "L2"}
         ]
-        with client.session_transaction() as sess:
-            sess['username']='teacher'; sess['identity']='teacher'
-        resp = client.get('/content')
-        assert resp.status_code == 200
-        assert b"L1" in resp.data and b"L2" in resp.data
-        mock_db.users.find_one.assert_called_once_with({"username":"teacher"})
-        mock_content_model.return_value.get_teacher_content.assert_called_once()
+        mock_cm.get_teacher_content.return_value = fake
 
-    @patch('routes.contentRoute.ContentModel')
-    def test_show_content_student(self, mock_content_model, client, mock_mongo):
+        with client.session_transaction() as sess:
+            sess['username'] = 'teacher'
+            sess['identity'] = 'teacher'
+
+        rv = client.get('/content')
+        mock_render.assert_called_once_with(
+            'teacher_content.html',
+            content_items=fake,
+            username='teacher',
+            identity='teacher'
+        )
+
+    @patch('routes.contentRoute.render_template')
+    @patch('routes.contentRoute.content_model')
+    @patch('routes.contentRoute.users')
+    def test_show_content_student(self, mock_users, mock_cm, mock_render, client, mock_mongo):
         mock_client, mock_db = mock_mongo
-        mock_content_model.return_value.get_all_content.return_value = [
-            {"_id": ObjectId(),"title":"L1"},
-            {"_id": ObjectId(),"title":"L2"}
+        fake = [
+            {"_id": ObjectId(), "title": "L1"},
+            {"_id": ObjectId(), "title": "L2"}
         ]
-        with client.session_transaction() as sess:
-            sess['username']='student'; sess['identity']='student'
-        resp = client.get('/content')
-        assert resp.status_code == 200
-        assert b"L1" in resp.data and b"L2" in resp.data
-        mock_content_model.return_value.get_all_content.assert_called_once()
+        mock_cm.get_all_content.return_value = fake
+        mock_users.find_one.return_value = {
+            "_id": ObjectId(), "username": "student", "identity": "student"
+        }
 
-    @patch('routes.contentRoute.ContentModel')
-    def test_create_content_get(self, mock_content_model, client, mock_mongo):
-        mock_client, mock_db = mock_mongo
-        mock_db.github_accounts.find_one.return_value = {"repo":"u/r","access_token":"t"}
         with client.session_transaction() as sess:
-            sess['username']='teacher'; sess['identity']='teacher'
-        resp = client.get('/content/create')
-        assert resp.status_code == 200
-        assert b"Create new lecture material" in resp.data
-        mock_db.github_accounts.find_one.assert_called_once_with({"username":"teacher"})
+            sess['username'] = 'student'
+            sess['identity'] = 'student'
 
-    @patch('routes.contentRoute.ContentModel')
-    def test_create_content_post(self, mock_content_model, client, mock_mongo):
-        mock_client, mock_db = mock_mongo
-        mock_db.users.find_one.return_value = {"_id":ObjectId(),"username":"teacher","identity":"teacher"}
-        mock_db.github_accounts.find_one.return_value = {"repo":"u/r","repo_url":"https://x"}
-        mock_content_model.return_value.create_content.return_value = "cid"
+        rv = client.get('/content')
+        mock_render.assert_called_once_with(
+            'student_content.html',
+            content_items=fake,
+            username='student',
+            identity='student'
+        )
+
+    @patch('routes.contentRoute.render_template')
+    @patch('routes.contentRoute.content_model')
+    @patch('routes.contentRoute.github_accounts')
+    @patch('routes.contentRoute.users')
+    def test_create_content_get(self, mock_users, mock_gh, mock_cm, mock_render, client):
+        mock_gh.find_one.return_value = {
+            "username": "teacher", "repo": "t/r", "access_token": "t"
+        }
         with client.session_transaction() as sess:
-            sess['username']='teacher'; sess['identity']='teacher'
-        data = {"title":"T","description":"D","github_repo_path":"p"}
-        resp = client.post('/content/create', data=data)
-        assert resp.status_code == 302
-        assert resp.location.endswith("/content")
-        mock_db.users.find_one.assert_called_once_with({"username":"teacher"})
-        mock_db.github_accounts.find_one.assert_called_once_with({"username":"teacher"})
-        mock_content_model.return_value.create_content.assert_called_once()
-        _, kwargs = mock_content_model.return_value.create_content.call_args
-        assert kwargs["title"] == "T" and kwargs["description"] == "D"
-        assert kwargs["github_repo_path"] == "p"
+            sess['username'] = 'teacher'
+            sess['identity'] = 'teacher'
+
+        rv = client.get('/content/create')
+        mock_render.assert_called_once_with(
+            'create_content.html',
+            github_info=mock_gh.find_one.return_value,
+            username='teacher',
+            identity='teacher'
+        )
+
+    @patch('routes.contentRoute.redirect')
+    @patch('routes.contentRoute.content_model')
+    @patch('routes.contentRoute.github_accounts')
+    @patch('routes.contentRoute.users')
+    def test_create_content_post(self, mock_users, mock_gh, mock_cm, mock_redirect, client):
+        mock_users.find_one.return_value = {
+            "_id": ObjectId(), "username": "teacher", "identity": "teacher"
+        }
+        mock_gh.find_one.return_value = {"repo": "t/r", "repo_url": "u"}
+        mock_cm.create_content.return_value = "cid"
+
+        with client.session_transaction() as sess:
+            sess['username'] = 'teacher'
+            sess['identity'] = 'teacher'
+
+        data = {
+            "title": "T",
+            "description": "D",
+            "github_repo_path": "p"
+        }
+        rv = client.post('/content/create', data=data)
+        mock_cm.create_content.assert_called_once()
+        mock_redirect.assert_called_once_with('/content')

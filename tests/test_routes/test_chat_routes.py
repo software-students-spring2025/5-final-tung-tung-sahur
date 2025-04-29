@@ -1,8 +1,8 @@
 import pytest
-from unittest.mock import patch
 from bson.objectid import ObjectId
-from routes.chatRoute import chat_bp
 from flask import Flask
+from routes.chatRoute import chat_bp
+from unittest.mock import patch
 
 @pytest.fixture
 def app():
@@ -19,14 +19,17 @@ def client(app):
 class TestChatRoutes:
     @patch('routes.chatRoute.ChatModel')
     @patch('routes.chatRoute.UserModel')
-    def test_chat_with_post(self, mock_user_model, mock_chat_model, client, mock_mongo):
+    def test_chat_with_post(self, mock_um, mock_cm, client, mock_mongo):
         mock_client, mock_db = mock_mongo
-        mock_user_model.return_value.find_by_username.return_value = {"username":"user2"}
-        mock_chat_model.return_value.send_message.return_value = "mid"
+        mock_um.return_value.find_by_username.return_value = {"username": "user2"}
+        mock_cm.return_value.send_message.return_value = "msgid"
+
         with client.session_transaction() as sess:
             sess['username'] = 'user1'
-        resp = client.post('/chat/with/user2', data={"message":"hi"})
-        assert resp.status_code == 302
-        assert resp.location.endswith("/chat/with/user2")
-        # code in chatRoute currently does NOT call send_message()
-        mock_chat_model.return_value.send_message.assert_not_called()
+
+        rv = client.post('/chat/with/user2', data={"message": "Hi"})
+        assert rv.status_code == 302
+        assert rv.location.endswith('/chat/with/user2')
+        mock_cm.return_value.send_message.assert_called_once_with(
+            sender="user1", receiver="user2", content="Hi"
+        )
