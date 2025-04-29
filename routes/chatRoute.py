@@ -49,11 +49,14 @@ def chat_with(contact):
         flash("You cannot chat with yourself.", "warning")
         return redirect(url_for("chat.chat_index"))
 
-    if not user_model.find_by_username(contact):
-        abort(404, description="User not found")
+    # if not user_model.find_by_username(contact):
+    #     abort(404, description="User not found")
 
     if request.method == "POST":
         message = request.form.get("message")
+        if not user_model.find_by_username(contact):
+            flash("You cannot chat with someone who does not exists now", "danger")
+            return redirect(url_for("chat.chat_with", contact=contact))
         if message:
             chat_model.send_message(sender=username, receiver=contact, content=message)
             return redirect(url_for("chat.chat_with", contact=contact))
