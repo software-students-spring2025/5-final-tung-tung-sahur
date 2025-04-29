@@ -240,7 +240,6 @@ def get_all_students():
             allStudents.append(user)
     return allStudents
 
-# A page for only teachers to see all students
 @app.route('/allStudents')
 def all_students():
     if "username" not in session:
