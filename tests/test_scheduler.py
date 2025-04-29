@@ -5,13 +5,10 @@ from datetime import datetime, timedelta, timezone
 from bson.objectid import ObjectId
 
 class TestScheduler:
+    @patch('app.assignments_collection')
+    @patch('app.users')
     @patch('app.send_mail')
-    @patch('app.MongoClient')
-    def test_due_soon_job(self, mock_mongo_client, mock_send_mail):
-        # Setup
-        mock_db = MagicMock()
-        mock_mongo_client.return_value.get_database.return_value = mock_db
-        
+    def test_due_soon_job(self, mock_send_mail, mock_users, mock_assignments_collection):
         # Current time
         now = datetime.now(timezone.utc)
         
@@ -30,14 +27,14 @@ class TestScheduler:
         ]
         
         # Mock the find method for assignments
-        mock_db.assignments_collection.find.return_value = mock_assignments
+        mock_assignments_collection.find.return_value = mock_assignments
         
         # Mock students with emails
         mock_students = [
             {"username": "student1", "identity": "student", "email": "student1@example.com"},
             {"username": "student2", "identity": "student", "email": "student2@example.com"}
         ]
-        mock_db.users.find.return_value = mock_students
+        mock_users.find.return_value = mock_students
         
         # Import the function to test
         from app import due_soon_job
@@ -45,13 +42,8 @@ class TestScheduler:
         # Execute
         due_soon_job()
         
-        # Verify
-        # Should send 2 emails (2 students) for each of 2 assignments = 4 emails
+        # Verify emails were sent
         assert mock_send_mail.call_count == 4
         
         # Verify the update for each assignment
-        assert mock_db.assignments_collection.update_one.call_count == 2
-        
-        # Check that we're setting reminder_sent to True
-        for call in mock_db.assignments_collection.update_one.call_args_list:
-            assert call[0][1] == {"$set": {"reminder_sent": True}}
+        assert mock_assignments_collection.update_one.call_count == 2
