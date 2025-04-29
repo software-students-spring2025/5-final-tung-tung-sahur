@@ -108,7 +108,7 @@
         });
 
         // Get raw markdown content and render it
-        const markdownContent = `{{ content|safe }}`;
+        const markdownContent = `{{ content }}`;
         const markdownContainer = document.getElementById('markdown-container');
         markdownContainer.innerHTML = marked.parse(markdownContent);
         

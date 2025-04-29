@@ -433,7 +433,7 @@ def browse_content_files(content_id):
         # Format contents for display
         formatted_contents = []
         for item in contents:
-            content_item = {
+            file_info = {
                 "name": item["name"],
                 "path": item["path"],
                 "type": item["type"],
@@ -441,7 +441,7 @@ def browse_content_files(content_id):
                 "download_url": item.get("download_url"),
                 "url": item["url"]
             }
-            formatted_contents.append(content_item)
+            formatted_contents.append(file_info)
             
         # Sort by type and name
         formatted_contents.sort(key=lambda x: (0 if x["type"] == "dir" else 1, x["name"]))

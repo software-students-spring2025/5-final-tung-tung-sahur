@@ -32,7 +32,7 @@
         align-items: center;
         padding: 8px 16px;
         border-bottom: 1px solid #333;
-        color: var(--fg-main);
+        color: #ffffff;
         text-decoration: none;
         transition: background-color 0.15s ease;
     }
@@ -55,6 +55,7 @@
     
     .file-name {
         flex-grow: 1;
+        color: #ffffff;
     }
     
     .file-size {
@@ -105,7 +106,7 @@
                         </li>
                         {% for crumb in breadcrumbs %}
                             {% if loop.last %}
-                                <li class="breadcrumb-item active">{{ crumb.name }}</li>
+                                <li class="breadcrumb-item active" style="color: #ffffff;">{{ crumb.name }}</li>
                             {% else %}
                                 <li class="breadcrumb-item">
                                     <a href="{{ url_for('content.browse_content_files', content_id=content_item._id, path=crumb.path) }}">
