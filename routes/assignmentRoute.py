@@ -53,8 +53,14 @@ def show_assignments():
         for assignment in assignments:
             if isinstance(assignment.get('due_date'), str):
                 try:
-                    due_date = datetime.strptime(assignment['due_date'], '%Y-%m-%d')
-                    assignment['remaining_days'] = (due_date - now).days
+                    due_date = datetime.fromisoformat(assignment['due_date'].replace('Z', '+00:00'))
+                    time_diff = due_date - now
+                    assignment['remaining_days'] = time_diff.days
+                    # Add hours, minutes, seconds for precision
+                    assignment['remaining_hours'] = time_diff.seconds // 3600
+                    assignment['remaining_minutes'] = (time_diff.seconds % 3600) // 60
+                    assignment['remaining_seconds'] = time_diff.seconds % 60
+                    assignment['overdue'] = time_diff.total_seconds() < 0
                 except ValueError:
                     assignment['remaining_days'] = 7  # Default value
             else:
@@ -98,22 +104,26 @@ def create_assignment():
     title = request.form.get("title")
     description = request.form.get("description")
     due_date = request.form.get("due_date")
+    due_time = request.form.get("due_time")
     github_repo_url = request.form.get("github_repo_url")
     
-    if not title or not description or not due_date:
+    if not title or not description or not due_date or not due_time:
         return "Missing required fields", 400
-        
+    
+    # Combine date and time into ISO format datetime string
+    due_datetime = f"{due_date}T{due_time}:00"
+    
     # Get current user ID
     user = users.find_one({"username": session.get("username")})
     if not user:
         return "User not found", 404
-        
-    # Create new assignment
+    
+    # Create new assignment with combined datetime
     assignment_id = assignment_model.create_assignment(
         teacher_id=str(user["_id"]),
         title=title,
         description=description,
-        due_date=due_date,
+        due_date=due_datetime,
         github_repo_url=github_repo_url
     )
     
@@ -374,3 +384,30 @@ def view_readme(submission_id):
                           submission=submission,
                           username=username,
                           identity=identity)
+
+# Delete an assignment and related submissions (Teacher only)
+@assignment_bp.route('/assignments/<assignment_id>/delete', methods=["POST"])
+def delete_assignment(assignment_id):
+    if not session.get("username") or session.get("identity") != "teacher":
+        return redirect(url_for('home'))
+        
+    # Get assignment to check if the current teacher is the owner
+    assignment = assignment_model.get_assignment(assignment_id)
+    if not assignment:
+        return "Assignment not found", 404
+        
+    # Check if current user is the teacher who created this assignment
+    user = users.find_one({"username": session.get("username")})
+    if str(user["_id"]) != assignment["teacher_id"]:
+        return "Unauthorized - You can only delete your own assignments", 403
+        
+    # Delete all related submissions
+    submission_count = submission_model.delete_by_assignment(assignment_id)
+    
+    # Delete the assignment
+    success = assignment_model.delete_assignment(assignment_id)
+    
+    if success:
+        return redirect(url_for('assignment.show_assignments'))
+    else:
+        return "Failed to delete assignment", 500

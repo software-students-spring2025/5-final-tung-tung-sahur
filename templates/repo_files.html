@@ -1,0 +1,8 @@
+<h2>Files in Repository</h2>
+<ul>
+  {% for file in files %}
+    <li>
+      <a href="{{ file.download_url }}" target="_blank">{{ file.name }}</a>
+    </li>
+  {% endfor %}
+</ul>

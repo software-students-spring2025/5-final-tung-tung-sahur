@@ -15,14 +15,16 @@
             <h5>Connected to GitHub account</h5>
             <p><strong>GitHub Username:</strong> {{ github_info.github_login }}</p>
             {% if github_info.repo %}
-            <p><strong>Selected repository:</strong> <a href="{{ github_info.repo_url }}" target="_blank">{{
-                    github_info.repo }}</a></p>
+            <p><strong>Selected repository:</strong> <a href="{{ github_info.repo_url }}" target="_blank">{{ github_info.repo }}</a></p>
+            <a href="{{ url_for('github.github_repo_unlink') }}" class="btn btn-sm btn-warning mr-2">
+                <i class="fas fa-unlink"></i> Change Repository
+            </a>
             {% else %}
-            <p><strong>No repository selected.</strong> - <a href="{{ url_for('github.github_repo_link') }}">Select
-                    repository</a></p>
+            <p><strong>No repository selected.</strong> - <a href="{{ url_for('github.github_repo_link') }}">Select repository</a></p>
             {% endif %}
-            <a href="{{ url_for('github.github_unlink') }}" class="btn btn-sm btn-outline-danger">Unlink GitHub
-                account</a>
+            <a href="{{ url_for('github.github_unlink') }}" class="btn btn-sm btn-outline-danger">
+                <i class="fas fa-trash-alt"></i> Unlink GitHub account
+            </a>
         </div>
         {% else %}
         <div class="alert alert-warning">
