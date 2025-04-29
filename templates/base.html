@@ -88,13 +88,9 @@
 
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav mr-auto">
-                    <li class="nav-item"><a class="nav-link" href="{{ url_for('home') }}">Home Page</a></li>
-                    <li class="nav-item"><a class="nav-link"
-                            href="{{ url_for('assignment.show_assignments') }}">Assignment</a></li>
-                    {% if session.get('identity') == 'teacher' %}
-                    <li class="nav-item"><a class="nav-link" href="{{ url_for('assignment.create_assignment') }}">Post
-                            An Assignment</a></li>
-                    {% endif %}
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('home') }}">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('content.show_content') }}">Contents</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('assignment.show_assignments') }}">Assignments</a></li>
                 </ul>
 
                 <ul class="navbar-nav">

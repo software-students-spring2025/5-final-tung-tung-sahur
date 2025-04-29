@@ -6,7 +6,7 @@
 <div class="container mt-4">
     <div class="jumbotron">
         <h1 class="display-4">Welcome back, {{ username }}!</h1>
-        <p class="lead">You are logged in as a teacher. Here, you can manage courses, assign homework, view student
+        <p class="lead">You are logged in as a teacher. Here, you can manage courses, assign homework, share lecture materials, view student
             submissions, and grade them.</p>
         <hr class="my-4">
 
@@ -35,51 +35,7 @@
         </div>
         {% endif %}
 
-        <div class="mt-4">
-            <a href="{{ url_for('assignment.create_assignment') }}" class="btn btn-primary btn-lg mr-3">
-                <i class="fas fa-plus-circle"></i> Create New Assignment
-            </a>
-            <a href="{{ url_for('assignment.show_assignments') }}" class="btn btn-info btn-lg">
-                <i class="fas fa-list"></i> View My Assignments
-            </a>
-        </div>
     </div>
 
-    {% if assignments %}
-    <div class="card mt-4">
-        <div class="card-header">
-            <h3>Recently Created Assignments</h3>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                {% for assignment in assignments[:3] %}
-                <div class="col-md-4 mb-3">
-                    <div class="card h-100">
-                        <div class="card-header">{{ assignment.title }}</div>
-                        <div class="card-body">
-                            <p>{{ assignment.description|truncate(100) }}</p>
-                            <p><strong>Due Date:</strong> {{ assignment.due_date }}</p>
-                            <p><strong>Submission Count:</strong> {{ assignment.submission_count }}</p>
-                        </div>
-                        <div class="card-footer">
-                            <a href="{{ url_for('assignment.view_assignment', assignment_id=assignment._id) }}"
-                                class="btn btn-sm btn-primary">
-                                View Details
-                            </a>
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-
-            {% if assignments|length > 3 %}
-            <div class="text-center mt-3">
-                <a href="{{ url_for('assignment.show_assignments') }}" class="btn btn-outline-primary">View All
-                    Assignments</a>
-            </div>
-            {% endif %}
-        </div>
-    </div>
-    {% endif %}
 </div>
 {% endblock %}

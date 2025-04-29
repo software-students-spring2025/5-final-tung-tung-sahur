@@ -29,6 +29,12 @@
         border-bottom: none;
     }
     
+    .file-info {
+        display: flex;
+        align-items: center;
+        color: #ffffff;
+    }
+    
     .file-actions {
         float: right;
     }
@@ -40,9 +46,17 @@
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="{{ url_for('home') }}">Home</a></li>
-            <li class="breadcrumb-item"><a href="{{ url_for('assignment.show_assignments') }}">Assignments</a></li>
-            <li class="breadcrumb-item"><a href="{{ url_for('assignment.view_assignment', assignment_id=assignment._id) }}">{{ assignment.title }}</a></li>
-            <li class="breadcrumb-item"><a href="{{ url_for('assignment.browse_assignment_files', assignment_id=assignment._id) }}">Files</a></li>
+            
+            {% if item_type == 'assignment' %}
+                <li class="breadcrumb-item"><a href="{{ url_for('assignment.show_assignments') }}">Assignments</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('assignment.view_assignment', assignment_id=item._id) }}">{{ item.title }}</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('assignment.browse_assignment_files', assignment_id=item._id) }}">Files</a></li>
+            {% else %}
+                <li class="breadcrumb-item"><a href="{{ url_for('content.show_content') }}">Lecture Materials</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('content.view_content', content_id=item._id) }}">{{ item.title }}</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('content.browse_content_files', content_id=item._id) }}">Files</a></li>
+            {% endif %}
+            
             <li class="breadcrumb-item active">{{ file_name }}</li>
         </ol>
     </nav>
@@ -52,9 +66,15 @@
             <i class="fas fa-file-alt mr-2"></i> <strong>{{ file_name }}</strong>
         </div>
         <div class="file-actions">
-            <a href="{{ url_for('assignment.download_assignment', assignment_id=assignment._id) }}" class="btn btn-sm btn-outline-primary">
-                <i class="fas fa-download"></i> Download
-            </a>
+            {% if item_type == 'assignment' %}
+                <a href="{{ url_for('assignment.download_assignment', assignment_id=item._id) }}" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-download"></i> Download
+                </a>
+            {% else %}
+                <a href="{{ url_for('content.download_content', content_id=item._id) }}" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-download"></i> Download
+                </a>
+            {% endif %}
         </div>
     </div>
 

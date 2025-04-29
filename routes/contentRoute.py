@@ -6,8 +6,7 @@ from datetime import datetime
 from flask import Blueprint, render_template, request, session, redirect, url_for, jsonify, send_file, Response
 from bson.objectid import ObjectId
 from pymongo import MongoClient
-from models.assignment import AssignmentModel
-from models.submission import SubmissionModel
+from models.content import ContentModel
 from dotenv import load_dotenv
 import base64
 import mimetypes
@@ -16,24 +15,22 @@ from .githubRoute import get_repo_contents, is_repo_path_file
 
 load_dotenv()
 
-assignment_bp = Blueprint('assignment', __name__)
+content_bp = Blueprint('content', __name__)
 
 # Connect to database - consistent with app.py and githubRoute.py
 mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/gitBrightSpace")
 client = MongoClient(mongo_uri)
 db = client.get_database()
 users = db["users"]
-assignments_collection = db["assignments"]
-submissions_collection = db["submissions"]
+content_collection = db["content"]
 github_accounts = db["github"]
 
-# Create model instances
-assignment_model = AssignmentModel(assignments_collection)
-submission_model = SubmissionModel(submissions_collection)
+# Create model instance
+content_model = ContentModel(content_collection)
 
-# Display all assignments list
-@assignment_bp.route('/assignments')
-def show_assignments():
+# Display all content items
+@content_bp.route('/content')
+def show_content():
     if not session.get("username"):
         return redirect(url_for('login'))
         
@@ -41,113 +38,32 @@ def show_assignments():
     username = session.get("username")
     
     if identity == "teacher":
-        # If teacher, display all assignments created by them
+        # If teacher, display all content items created by them
         user = users.find_one({"username": username})
         if not user:
             return "User not found", 404
             
         user_id = str(user["_id"])
-        assignments = assignment_model.get_teacher_assignments(user_id)
-        return render_template("teacher_assignments.html", assignments=assignments, username=username, identity=identity)
+        content_items = content_model.get_teacher_content(user_id)
+        return render_template("teacher_content.html", content_items=content_items, username=username, identity=identity)
     else:
-        # If student, display all available assignments
-        assignments = assignment_model.get_all_assignments()
-        # Process date format and calculate remaining days
-        now = datetime.now()
-        for assignment in assignments:
-            if isinstance(assignment.get('due_date'), str):
-                try:
-                    due_date = datetime.fromisoformat(assignment['due_date'].replace('Z', '+00:00'))
-                    time_diff = due_date - now
-                    assignment['remaining_days'] = time_diff.days
-                    # Add hours, minutes, seconds for precision
-                    assignment['remaining_hours'] = time_diff.seconds // 3600
-                    assignment['remaining_minutes'] = (time_diff.seconds % 3600) // 60
-                    assignment['remaining_seconds'] = time_diff.seconds % 60
-                    assignment['overdue'] = time_diff.total_seconds() < 0
-                except ValueError:
-                    assignment['remaining_days'] = 7  # Default value
-            else:
-                assignment['remaining_days'] = 7  # Default value
-        # Get all submissions for this student
-        user = users.find_one({"username": username})
-        if not user:
-            return "User not found", 404
-            
-        user_id = str(user["_id"])
-        submissions = submission_model.get_student_submissions(user_id)
-        
-        # Create a dictionary with assignment ID as key and submission object as value
-        submission_dict = {}
-        for sub in submissions:
-            submission_dict[sub["assignment_id"]] = sub
-            
-        return render_template("student_assignments.html", 
-                              assignments=assignments, 
-                              submissions=submission_dict,
+        # If student, display all available content
+        content_items = content_model.get_all_content()
+        return render_template("student_content.html", 
+                              content_items=content_items,
                               username=username, 
-                              identity=identity,
-                              datetime=datetime,
-                              abs=abs)
+                              identity=identity)
 
-# Add a new route to list repository contents for assignment creation
-@assignment_bp.route('/assignments/list_repo_contents')
-def list_repo_contents():
-    if not session.get("username") or session.get("identity") != "teacher":
-        return jsonify({"error": "Unauthorized"}), 403
-        
-    # Get current teacher's GitHub account information
-    github_info = github_accounts.find_one({"username": session.get("username")})
-    if not github_info or not github_info.get("repo"):
-        return jsonify({"error": "No GitHub repository linked"}), 400
-    
-    access_token = github_info["access_token"]
-    repo_path = github_info["repo"]  # Format: "username/repo"
-    
-    # Parse repository information
-    owner, repo = repo_path.split("/")
-    
-    # Get optional path parameter from request
-    path = request.args.get("path", "")
-    
-    try:
-        # Use the shared function to get repository contents
-        contents = get_repo_contents(owner, repo, access_token, path)
-        
-        # Handle single file response case
-        if not isinstance(contents, list):
-            contents = [contents]
-        
-        # Format return data
-        formatted_contents = []
-        for item in contents:
-            content_item = {
-                "name": item["name"],
-                "path": item["path"],
-                "type": item["type"],
-                "size": item.get("size", 0),
-                "download_url": item.get("download_url", ""),
-                "url": item["url"]
-            }
-            formatted_contents.append(content_item)
-        
-        # Sort: directories first, then by name
-        formatted_contents.sort(key=lambda x: (0 if x["type"] == "dir" else 1, x["name"]))
-        
-        return jsonify(formatted_contents)
-    except Exception as e:
-        return jsonify({"error": f"GitHub API error: {str(e)}"}), 400
-
-# Create new assignment (teachers only)
-@assignment_bp.route('/assignments/create', methods=["GET", "POST"])
-def create_assignment():
+# Create new content (teachers only)
+@content_bp.route('/content/create', methods=["GET", "POST"])
+def create_content():
     if not session.get("username") or session.get("identity") != "teacher":
         return redirect(url_for('home'))
         
     if request.method == "GET":
         # Get teacher's linked GitHub repositories
         github_info = github_accounts.find_one({"username": session.get("username")})
-        return render_template("create_assignment.html", 
+        return render_template("create_content.html", 
                               github_info=github_info,
                               username=session.get("username"),
                               identity=session.get("identity"))
@@ -155,15 +71,10 @@ def create_assignment():
     # Process POST request
     title = request.form.get("title")
     description = request.form.get("description")
-    due_date = request.form.get("due_date")
-    due_time = request.form.get("due_time")
     github_repo_path = request.form.get("github_repo_path")
     
-    if not title or not description or not due_date or not due_time:
+    if not title or not description:
         return "Missing required fields", 400
-    
-    # Combine date and time into ISO format datetime string
-    due_datetime = f"{due_date}T{due_time}:00"
     
     # Get current user ID
     user = users.find_one({"username": session.get("username")})
@@ -184,164 +95,57 @@ def create_assignment():
             # Use the default repository URL
             github_repo_url = github_info.get("repo_url")
     
-    # Create new assignment with combined datetime
-    assignment_id = assignment_model.create_assignment(
+    # Create new content with combined datetime
+    content_id = content_model.create_content(
         teacher_id=str(user["_id"]),
         title=title,
         description=description,
-        due_date=due_datetime,
         github_repo_url=github_repo_url,
         github_repo_path=github_repo_path
     )
     
-    return redirect(url_for('assignment.show_assignments'))
+    return redirect(url_for('content.show_content'))
 
-# View single assignment details
-@assignment_bp.route('/assignments/<assignment_id>')
-def view_assignment(assignment_id):
+# View single content details
+@content_bp.route('/content/<content_id>')
+def view_content(content_id):
     if not session.get("username"):
         return redirect(url_for('login'))
         
-    assignment = assignment_model.get_assignment(assignment_id)
-    if not assignment:
-        return "Assignment not found", 404
+    content_item = content_model.get_content(content_id)
+    if not content_item:
+        return "Content not found", 404
         
     # Convert ObjectId to string
-    assignment["_id"] = str(assignment["_id"])
+    content_item["_id"] = str(content_item["_id"])
     
     identity = session.get("identity")
     username = session.get("username")
     
-    # Get user information
-    user = users.find_one({"username": username})
-    if not user:
-        return "User not found", 404
-        
-    user_id = str(user["_id"])
-    
-    if identity == "teacher":
-        # If teacher, also get all student submissions for this assignment
-        submissions = submission_model.get_assignment_submissions(assignment_id)
-        
-        # Get username for each submission's student
-        for sub in submissions:
-            student = users.find_one({"_id": ObjectId(sub["student_id"])})
-            if student:
-                sub["student_username"] = student["username"]
-            else:
-                sub["student_username"] = "Unknown"
-            sub["_id"] = str(sub["_id"])
-            
-        return render_template("teacher_assignment_detail.html", 
-                              assignment=assignment,
-                              submissions=submissions,
-                              username=username,
-                              identity=identity)
-    else:
-        # If student, check if already submitted
-        submission = submission_model.get_student_assignment_submission(user_id, assignment_id)
-        
-        # Get student's GitHub account information
-        github_info = github_accounts.find_one({"username": username})
-        
-        return render_template("student_assignment_detail.html",
-                              assignment=assignment,
-                              submission=submission,
-                              github_info=github_info,
-                              username=username,
-                              identity=identity)
+    return render_template("content_detail.html", 
+                          content=content_item,
+                          username=username,
+                          identity=identity)
 
-# Student assignment submission
-@assignment_bp.route('/assignments/<assignment_id>/submit', methods=["POST"])
-def submit_assignment(assignment_id):
-    if not session.get("username") or session.get("identity") != "student":
-        return redirect(url_for('home'))
-        
-    # Get form data
-    github_link = request.form.get("github_link")
-    readme_content = request.form.get("readme_content")
-    
-    if not github_link:
-        return "Missing GitHub repository link", 400
-        
-    # Get student ID
-    student = users.find_one({"username": session.get("username")})
-    if not student:
-        return "User not found", 404
-        
-    student_id = str(student["_id"])
-    
-    # Check if already submitted
-    existing_submission = submission_model.get_student_assignment_submission(student_id, assignment_id)
-    if existing_submission:
-        # Update submission
-        submission_model.update_submission(
-            str(existing_submission["_id"]),
-            {
-                "github_link": github_link,
-                "readme_content": readme_content,
-                "submitted_at": datetime.now(),
-                "status": "submitted"
-            }
-        )
-    else:
-        # Create new submission
-        submission_model.create_submission(
-            student_id=student_id,
-            assignment_id=assignment_id,
-            github_link=github_link,
-            readme_content=readme_content
-        )
-    
-    return redirect(url_for('assignment.view_assignment', assignment_id=assignment_id))
-
-# Teacher grading and feedback
-@assignment_bp.route('/submissions/<submission_id>/grade', methods=["POST"])
-def grade_submission(submission_id):
-    if not session.get("username") or session.get("identity") != "teacher":
-        return redirect(url_for('home'))
-        
-    # Get form data
-    grade = request.form.get("grade")
-    feedback = request.form.get("feedback")
-    
-    if not grade or not feedback:
-        return "Missing grade or feedback", 400
-        
-    # Convert grade to float
-    try:
-        grade_float = float(grade)
-    except ValueError:
-        return "Invalid grade format", 400
-        
-    # Add grade and feedback
-    success = submission_model.add_feedback(submission_id, grade_float, feedback)
-    if not success:
-        return "Failed to update submission", 500
-        
-    # Get submission information to redirect to assignment details page
-    submission = submission_model.get_submission(submission_id)
-    return redirect(url_for('assignment.view_assignment', assignment_id=submission["assignment_id"]))
-
-# Download code from GitHub and package it
-@assignment_bp.route('/assignments/<assignment_id>/download')
-def download_assignment(assignment_id):
+# Download content from GitHub
+@content_bp.route('/content/<content_id>/download')
+def download_content(content_id):
     if not session.get("username"):
         return redirect(url_for('login'))
         
-    assignment = assignment_model.get_assignment(assignment_id)
-    if not assignment:
-        return "Assignment not found", 404
+    content_item = content_model.get_content(content_id)
+    if not content_item:
+        return "Content not found", 404
         
     # Get GitHub repository URL and path
-    github_repo_url = assignment.get("github_repo_url")
-    github_repo_path = assignment.get("github_repo_path", "")
+    github_repo_url = content_item.get("github_repo_url")
+    github_repo_path = content_item.get("github_repo_path", "")
     
     if not github_repo_url:
-        return "No GitHub repository associated with this assignment", 400
+        return "No GitHub repository associated with this content", 400
         
-    # Get teacher's GitHub access token (assignment creator)
-    teacher = users.find_one({"_id": ObjectId(assignment["teacher_id"])})
+    # Get teacher's GitHub access token (content creator)
+    teacher = users.find_one({"_id": ObjectId(content_item["teacher_id"])})
     if not teacher:
         return "Teacher not found", 404
         
@@ -453,72 +257,17 @@ def download_assignment(assignment_id):
     memory_file.seek(0)
     
     # Generate download filename
-    assignment_title = assignment.get("title", "assignment").replace(" ", "_")
+    content_title = content_item.get("title", "content").replace(" ", "_")
     
     return send_file(
         memory_file,
-        download_name=f"{assignment_title}.zip",
+        download_name=f"{content_title}.zip",
         as_attachment=True,
         mimetype='application/zip'
     )
 
-# View student submission README
-@assignment_bp.route('/submissions/<submission_id>/readme')
-def view_readme(submission_id):
-    if not session.get("username"):
-        return redirect(url_for('login'))
-        
-    submission = submission_model.get_submission(submission_id)
-    if not submission:
-        return "Submission not found", 404
-        
-    # Check access permissions
-    identity = session.get("identity")
-    username = session.get("username")
-    
-    if identity == "student":
-        # Students can only view their own submissions
-        user = users.find_one({"username": username})
-        if not user or str(user["_id"]) != submission["student_id"]:
-            return "Unauthorized", 403
-    
-    # Return README content
-    readme_content = submission.get("readme_content", "No README content available")
-    return render_template("view_readme.html", 
-                          readme_content=readme_content,
-                          submission=submission,
-                          username=username,
-                          identity=identity)
-
-# Delete an assignment and related submissions (Teacher only)
-@assignment_bp.route('/assignments/<assignment_id>/delete', methods=["POST"])
-def delete_assignment(assignment_id):
-    if not session.get("username") or session.get("identity") != "teacher":
-        return redirect(url_for('home'))
-        
-    # Get assignment to check if the current teacher is the owner
-    assignment = assignment_model.get_assignment(assignment_id)
-    if not assignment:
-        return "Assignment not found", 404
-        
-    # Check if current user is the teacher who created this assignment
-    user = users.find_one({"username": session.get("username")})
-    if str(user["_id"]) != assignment["teacher_id"]:
-        return "Unauthorized - You can only delete your own assignments", 403
-        
-    # Delete all related submissions
-    submission_count = submission_model.delete_by_assignment(assignment_id)
-    
-    # Delete the assignment
-    success = assignment_model.delete_assignment(assignment_id)
-    
-    if success:
-        return redirect(url_for('assignment.show_assignments'))
-    else:
-        return "Failed to delete assignment", 500
-    
-@assignment_bp.route('/assignments/<assignment_id>/preview/<path:file_path>')
-def preview_assignment_file(assignment_id, file_path):
+@content_bp.route('/content/<content_id>/preview/<path:file_path>')
+def preview_content_file(content_id, file_path):
     """
     Preview a file from GitHub without storing it on the server.
     Handles different file types including markdown, code files, and PDFs.
@@ -526,16 +275,16 @@ def preview_assignment_file(assignment_id, file_path):
     if not session.get("username"):
         return redirect(url_for('login'))
         
-    # Get assignment details
-    assignment = assignment_model.get_assignment(assignment_id)
-    if not assignment:
-        return "Assignment not found", 404
+    # Get content details
+    content_item = content_model.get_content(content_id)
+    if not content_item:
+        return "Content not found", 404
         
-    # Get GitHub repository information from the assignment or teacher
-    github_repo_path = assignment.get("github_repo_path", "")
+    # Get GitHub repository information from the content or teacher
+    github_repo_path = content_item.get("github_repo_path", "")
     
     # Get teacher's GitHub access token
-    teacher = users.find_one({"_id": ObjectId(assignment["teacher_id"])})
+    teacher = users.find_one({"_id": ObjectId(content_item["teacher_id"])})
     if not teacher:
         return "Teacher not found", 404
         
@@ -589,8 +338,8 @@ def preview_assignment_file(assignment_id, file_path):
         return render_template('preview_markdown.html', 
                               content=content_text,
                               file_name=os.path.basename(file_path),
-                              item=assignment,
-                              item_type='assignment',
+                              item=content_item,
+                              item_type='content',
                               username=session.get("username"),
                               identity=session.get("identity"))
                               
@@ -602,8 +351,8 @@ def preview_assignment_file(assignment_id, file_path):
                               content=content_text,
                               file_name=os.path.basename(file_path),
                               language=file_extension[1:],  # Remove the dot from extension
-                              item=assignment,
-                              item_type='assignment',
+                              item=content_item,
+                              item_type='content',
                               username=session.get("username"),
                               identity=session.get("identity"))
                               
@@ -616,8 +365,8 @@ def preview_assignment_file(assignment_id, file_path):
         return render_template('preview_pdf.html',
                               pdf_data=pdf_data_uri,
                               file_name=os.path.basename(file_path),
-                              item=assignment,
-                              item_type='assignment',
+                              item=content_item,
+                              item_type='content',
                               username=session.get("username"),
                               identity=session.get("identity"))
     else:
@@ -631,22 +380,22 @@ def preview_assignment_file(assignment_id, file_path):
             }
         )
 
-# Add a route to browse assignment files
-@assignment_bp.route('/assignments/<assignment_id>/browse')
-def browse_assignment_files(assignment_id):
-    """Browse the files of an assignment"""
+# Add a route to browse content files
+@content_bp.route('/content/<content_id>/browse')
+def browse_content_files(content_id):
+    """Browse the files of a content item"""
     if not session.get("username"):
         return redirect(url_for('login'))
         
-    assignment = assignment_model.get_assignment(assignment_id)
-    if not assignment:
-        return "Assignment not found", 404
+    content_item = content_model.get_content(content_id)
+    if not content_item:
+        return "Content not found", 404
         
     # Get GitHub repository information
-    github_repo_path = assignment.get("github_repo_path", "")
+    github_repo_path = content_item.get("github_repo_path", "")
     
     # Get teacher's GitHub access token
-    teacher = users.find_one({"_id": ObjectId(assignment["teacher_id"])})
+    teacher = users.find_one({"_id": ObjectId(content_item["teacher_id"])})
     if not teacher:
         return "Teacher not found", 404
         
@@ -664,13 +413,13 @@ def browse_assignment_files(assignment_id):
         
     owner, repo = repo_path.split("/")
     
-    # Determine path to browse (from query param or from assignment)
+    # Determine path to browse (from query param or from content)
     browse_path = request.args.get('path', github_repo_path)
     
     # If it's a direct file, redirect to preview
     if browse_path and is_repo_path_file(owner, repo, access_token, browse_path):
-        return redirect(url_for('assignment.preview_assignment_file', 
-                               assignment_id=assignment_id, 
+        return redirect(url_for('content.preview_content_file', 
+                               content_id=content_id, 
                                file_path=browse_path))
     
     # Get contents of path
@@ -711,8 +460,8 @@ def browse_assignment_files(assignment_id):
                     "path": current_path
                 })
         
-        return render_template('browse_assignment_files.html',
-                              assignment=assignment,
+        return render_template('browse_content_files.html',
+                              content_item=content_item,
                               contents=formatted_contents,
                               current_path=browse_path,
                               breadcrumbs=breadcrumbs,
@@ -722,3 +471,27 @@ def browse_assignment_files(assignment_id):
                               
     except Exception as e:
         return f"Error accessing repository: {str(e)}", 400
+
+# Delete content (Teacher only)
+@content_bp.route('/content/<content_id>/delete', methods=["POST"])
+def delete_content(content_id):
+    if not session.get("username") or session.get("identity") != "teacher":
+        return redirect(url_for('home'))
+        
+    # Get content to check if the current teacher is the owner
+    content_item = content_model.get_content(content_id)
+    if not content_item:
+        return "Content not found", 404
+        
+    # Check if current user is the teacher who created this content
+    user = users.find_one({"username": session.get("username")})
+    if str(user["_id"]) != content_item["teacher_id"]:
+        return "Unauthorized - You can only delete your own content", 403
+        
+    # Delete the content
+    success = content_model.delete_content(content_id)
+    
+    if success:
+        return redirect(url_for('content.show_content'))
+    else:
+        return "Failed to delete content", 500

@@ -19,6 +19,19 @@ client = MongoClient(mongo_uri)
 db = client.get_database()
 users = db["users"]
 github_accounts = db["github"]
+assignments_collection = db["assignments"]
+content_collection = db["content"]
+submissions_collection = db["submissions"]
+
+# Import models
+from models.assignment import AssignmentModel
+from models.submission import SubmissionModel
+from models.content import ContentModel
+
+# Create model instances
+assignment_model = AssignmentModel(assignments_collection)
+submission_model = SubmissionModel(submissions_collection)
+content_model = ContentModel(content_collection)
 
 for bp in all_blueprints:
     app.register_blueprint(bp)
@@ -42,9 +55,62 @@ def datetime_format(value):
 def home():
     if "username" in session:
         github_info = github_accounts.find_one({"username": session["username"]})
-        return render_template("home.html", username=session["username"],
-                               identity=session.get("identity", "student"),
-                               github_info=github_info)
+        identity = session.get("identity", "student")
+        username = session.get("username")
+        
+        user = users.find_one({"username": username})
+        if not user:
+            return "User not found", 404
+            
+        user_id = str(user["_id"])
+        
+        # Get assignments based on user identity
+        if identity == "teacher":
+            assignments = assignment_model.get_teacher_assignments(user_id)
+            content_items = content_model.get_teacher_content(user_id)
+            
+            # Add submission count to each assignment
+            for assignment in assignments:
+                assignment_id = str(assignment["_id"])
+                submissions = submission_model.get_assignment_submissions(assignment_id)
+                assignment["submission_count"] = len(submissions)
+                
+        else:  # Student
+            assignments = assignment_model.get_all_assignments()
+            content_items = content_model.get_all_content()
+            
+            # Get all submissions for this student
+            submissions = submission_model.get_student_submissions(user_id)
+            
+            # Create a dictionary with assignment ID as key and submission object as value
+            submission_dict = {}
+            for sub in submissions:
+                submission_dict[sub["assignment_id"]] = sub
+                
+            # Process date format and calculate remaining days for assignments
+            now = datetime.now()
+            for assignment in assignments:
+                if isinstance(assignment.get('due_date'), str):
+                    try:
+                        due_date = datetime.fromisoformat(assignment['due_date'].replace('Z', '+00:00'))
+                        time_diff = due_date - now
+                        assignment['remaining_days'] = time_diff.days
+                        # Add hours, minutes, seconds for precision
+                        assignment['remaining_hours'] = time_diff.seconds // 3600
+                        assignment['remaining_minutes'] = (time_diff.seconds % 3600) // 60
+                        assignment['remaining_seconds'] = time_diff.seconds % 60
+                        assignment['overdue'] = time_diff.total_seconds() < 0
+                    except ValueError:
+                        assignment['remaining_days'] = 7  # Default value
+                else:
+                    assignment['remaining_days'] = 7  # Default value
+        
+        return render_template("home.html", username=username,
+                              identity=identity,
+                              github_info=github_info,
+                              assignments=assignments,
+                              content_items=content_items,
+                              submissions=submission_dict if identity == "student" else None)
     return redirect(url_for('login'))
 
 @app.route('/register', methods=["GET", "POST"])
@@ -91,4 +157,3 @@ def logout():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=3000)
-
