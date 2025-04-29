@@ -38,6 +38,17 @@ def datetime_format(value):
             return value
     return value
 
+# Used only for chat
+@app.template_filter('chat_time_format')
+def chat_time_format(value):
+    if isinstance(value, str):
+        try:
+            dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+            return dt.strftime("%Y-%m-%d %H:%M")
+        except ValueError:
+            return value
+    return value
+
 @app.route('/')
 def home():
     if "username" in session:
