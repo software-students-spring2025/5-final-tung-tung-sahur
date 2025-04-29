@@ -108,3 +108,84 @@ class TestGitHubModel:
         # Verify
         assert result is False
         mock_collection.update_one.assert_called_once()
+
+@pytest.fixture
+def client(app):
+    return app.test_client()
+
+@pytest.fixture
+def session_data():
+    return {"username": "testuser"}
+
+@patch("routes.github.requests.post")
+@patch("routes.github.requests.get")
+def test_github_callback_success(mock_get, mock_post, client, session_data):
+    mock_post.return_value.json.return_value = {"access_token": "fake-token"}
+    mock_get.return_value.json.return_value = {
+        "id": 12345,
+        "login": "githubuser",
+        "name": "GitHub User",
+        "avatar_url": "https://example.com/avatar.png"
+    }
+
+    with client.session_transaction() as sess:
+        sess["username"] = session_data["username"]
+
+    response = client.get("/github/callback?code=fake-code")
+
+    assert response.status_code == 302
+    assert response.location.endswith(url_for("home"))
+
+def test_github_link_redirect(client):
+    response = client.get("/github/link")
+    assert response.status_code == 302
+    assert "github.com/login/oauth/authorize" in response.location
+
+def test_github_callback_missing_code(client):
+    response = client.get("/github/callback")
+    assert response.status_code == 400
+    assert b"Missing code" in response.data
+
+@patch("routes.github.requests.get")
+def test_github_repo_link_success(mock_get, client, session_data):
+    mock_get.return_value.json.return_value = [
+        {"full_name": "testuser/repo1"},
+        {"full_name": "testuser/repo2"},
+    ]
+
+    with client.session_transaction() as sess:
+        sess["username"] = session_data["username"]
+
+    response = client.get("/github/repo/link")
+    assert response.status_code == 200
+    assert b"repo1" in response.data
+    assert b"repo2" in response.data
+
+@patch("routes.github.get_repo_contents")
+def test_get_repository_contents_success(mock_get_repo_contents, client, session_data):
+    mock_get_repo_contents.return_value = [
+        {
+            "name": "README.md",
+            "path": "README.md",
+            "type": "file",
+            "size": 123,
+            "download_url": "https://example.com/readme",
+            "url": "https://api.github.com/repos/owner/repo/contents/README.md"
+        }
+    ]
+
+    with client.session_transaction() as sess:
+        sess["username"] = session_data["username"]
+
+    response = client.get("/github/repo/contents")
+    data = response.get_json()
+    assert response.status_code == 200
+    assert any(file["name"] == "README.md" for file in data)
+
+def test_github_unlink_success(client, session_data):
+    with client.session_transaction() as sess:
+        sess["username"] = session_data["username"]
+
+    response = client.get("/github/unlink")
+    assert response.status_code == 302
+    assert response.location.endswith(url_for("home"))
