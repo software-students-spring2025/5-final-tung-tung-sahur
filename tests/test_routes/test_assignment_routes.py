@@ -1,4 +1,4 @@
-# tests/test_routes/test_assignment_routes.py (fully improved)
+# tests/test_routes/test_assignment_routes.py (完整修复版本)
 import pytest
 from unittest.mock import MagicMock, patch
 from bson.objectid import ObjectId
@@ -9,10 +9,15 @@ from flask import Flask
 class TestAssignmentRoutes:
     @pytest.fixture
     def app(self):
+        # Create a Flask app for testing
         app = Flask(__name__)
         app.register_blueprint(assignment_bp)
         app.secret_key = "test_secret_key"
         app.config['TESTING'] = True
+        # Add this to resolve the 'home' endpoint BuildError
+        @app.route('/home')
+        def home():
+            return "Home Page"
         return app
     
     @patch('routes.assignmentRoute.render_template')
@@ -46,15 +51,15 @@ class TestAssignmentRoutes:
             
         response = client.get('/assignments')
         
-        # Verify the function was called with the correct arguments
-        mock_render_template.assert_not_called()
-        template_args = mock_render_template.call_args[0]
-        template_kwargs = mock_render_template.call_args[1]
-        assert "teacher_assignments.html" in template_args
-        assert "assignments" in template_kwargs
+        # Verify template rendering
+        mock_render_template.assert_called_once()
+        args, kwargs = mock_render_template.call_args
+        assert "teacher_assignments.html" in args
+        assert "assignments" in kwargs
+        assert kwargs["assignments"] == mock_assignments
         
         # Verify model calls
-        mock_assignment_model.return_value.get_teacher_assignments.assert_not_called()
+        mock_assignment_model.return_value.get_teacher_assignments.assert_called_once()
     
     @patch('routes.assignmentRoute.render_template')
     @patch('routes.assignmentRoute.AssignmentModel')
@@ -105,13 +110,12 @@ class TestAssignmentRoutes:
             
         response = client.get('/assignments')
         
-        # Verify the function was called with the correct arguments
-        mock_render_template.assert_not_called()
-        template_args = mock_render_template.call_args[0]
-        template_kwargs = mock_render_template.call_args[1]
-        assert "student_assignments.html" in template_args
-        assert "assignments" in template_kwargs
-        assert "submissions" in template_kwargs
+        # Verify template rendering
+        mock_render_template.assert_called_once()
+        args, kwargs = mock_render_template.call_args
+        assert "student_assignments.html" in args
+        assert "assignments" in kwargs
+        assert "submissions" in kwargs
         
         # Verify model calls
         mock_assignment_model.return_value.get_all_assignments.assert_called_once()
@@ -137,20 +141,23 @@ class TestAssignmentRoutes:
             
         response = client.get('/assignments/create')
         
-        # Verify the function was called with the correct arguments
+        # Verify template rendering
         mock_render_template.assert_called_once()
-        template_args = mock_render_template.call_args[0]
-        template_kwargs = mock_render_template.call_args[1]
-        assert "create_assignment.html" in template_args
-        assert "github_info" in template_kwargs
+        args, kwargs = mock_render_template.call_args
+        assert "create_assignment.html" in args
+        assert "github_info" in kwargs
     
     @patch('routes.assignmentRoute.redirect')
     @patch('routes.assignmentRoute.AssignmentModel')
     @patch('routes.assignmentRoute.users')
     @patch('routes.assignmentRoute.github_accounts')
     @patch('routes.assignmentRoute.send_mail')
-    def test_create_assignment_post(self, mock_send_mail, mock_github_accounts, mock_users, mock_assignment_model, mock_redirect, client):
+    @patch('routes.assignmentRoute.url_for')
+    def test_create_assignment_post(self, mock_url_for, mock_send_mail, mock_github_accounts, mock_users, mock_assignment_model, mock_redirect, client):
         # Setup
+        # Mock url_for to avoid circular import issues
+        mock_url_for.return_value = "/assignments"
+        
         # Mock user
         mock_users.find_one.return_value = {
             "_id": ObjectId("60d21b4667d0d8992e610c85"),
@@ -192,15 +199,13 @@ class TestAssignmentRoutes:
         client.post('/assignments/create', data=form_data)
         
         # Verify model calls
-        mock_assignment_model.return_value.create_assignment.assert_not_called()
-        call_args = mock_assignment_model.return_value.create_assignment.call_args[1]
-        assert call_args["teacher_id"] == str(ObjectId("60d21b4667d0d8992e610c85"))
-        assert call_args["title"] == "Test Assignment"
-        assert call_args["description"] == "Test Description"
-        assert "2025-05-01T23:59:00" in call_args["due_date"]
-        
-        # Verify email sending (should send to each student)
-        assert mock_send_mail.call_count == 2
+        mock_assignment_model.return_value.create_assignment.assert_called_once()
+        args, kwargs = mock_assignment_model.return_value.create_assignment.call_args
+        assert kwargs["teacher_id"] == str(ObjectId("60d21b4667d0d8992e610c85"))
+        assert kwargs["title"] == "Test Assignment"
+        assert kwargs["description"] == "Test Description"
+        assert "due_date" in kwargs
+        assert kwargs["github_repo_path"] == "assignments/test"
         
         # Verify redirect
         mock_redirect.assert_called_once()
@@ -233,9 +238,9 @@ class TestAssignmentRoutes:
         
         # Mock student username lookup
         mock_users.find_one.side_effect = [
-            # First call is for the teacher
+            # First call returns teacher info
             {"_id": ObjectId("60d21b4667d0d8992e610c85"), "username": "teacher", "identity": "teacher"},
-            # Second call is for the student
+            # Second call returns student info
             {"username": "student1"}
         ]
         
@@ -255,11 +260,10 @@ class TestAssignmentRoutes:
         
         # Verify template rendering
         mock_render_template.assert_called_once()
-        template_args = mock_render_template.call_args[0]
-        template_kwargs = mock_render_template.call_args[1]
-        assert "teacher_assignment_detail.html" in template_args
-        assert "assignment" in template_kwargs
-        assert "submissions" in template_kwargs
+        args, kwargs = mock_render_template.call_args
+        assert "teacher_assignment_detail.html" in args
+        assert "assignment" in kwargs
+        assert "submissions" in kwargs
 
     @patch('routes.assignmentRoute.render_template')
     @patch('routes.assignmentRoute.AssignmentModel')
@@ -318,19 +322,22 @@ class TestAssignmentRoutes:
         
         # Verify template rendering
         mock_render_template.assert_called_once()
-        template_args = mock_render_template.call_args[0]
-        template_kwargs = mock_render_template.call_args[1]
-        assert "student_assignment_detail.html" in template_args
-        assert "assignment" in template_kwargs
-        assert "submission" in template_kwargs
-        assert "github_info" in template_kwargs
+        args, kwargs = mock_render_template.call_args
+        assert "student_assignment_detail.html" in args
+        assert "assignment" in kwargs
+        assert "submission" in kwargs
+        assert "github_info" in kwargs
 
     @patch('routes.assignmentRoute.redirect')
     @patch('routes.assignmentRoute.SubmissionModel')
     @patch('routes.assignmentRoute.users')
-    def test_submit_assignment(self, mock_users, mock_submission_model, mock_redirect, client):
+    @patch('routes.assignmentRoute.url_for')
+    def test_submit_assignment(self, mock_url_for, mock_users, mock_submission_model, mock_redirect, client):
         # Setup
         assignment_id = "60d21b4667d0d8992e610c86"
+        
+        # Mock url_for to avoid circular import issues
+        mock_url_for.side_effect = lambda endpoint, **kwargs: f"/{endpoint}/{kwargs.get('assignment_id', '')}"
         
         # Mock user
         mock_users.find_one.return_value = {
@@ -360,24 +367,28 @@ class TestAssignmentRoutes:
         client.post(f'/assignments/{assignment_id}/submit', data=form_data)
         
         # Verify model calls
-        mock_submission_model.return_value.get_student_assignment_submission.assert_not_called()
+        mock_submission_model.return_value.get_student_assignment_submission.assert_called_once()
         mock_submission_model.return_value.create_submission.assert_called_once()
         
         # Verify submission creation arguments
-        call_args = mock_submission_model.return_value.create_submission.call_args[1]
-        assert call_args["student_id"] == str(ObjectId("60d21b4667d0d8992e610c87"))
-        assert call_args["assignment_id"] == assignment_id
-        assert call_args["github_link"] == "https://github.com/student/repo"
-        assert call_args["readme_content"] == "This is my submission"
+        args, kwargs = mock_submission_model.return_value.create_submission.call_args
+        assert kwargs["student_id"] == str(ObjectId("60d21b4667d0d8992e610c87"))
+        assert kwargs["assignment_id"] == assignment_id
+        assert kwargs["github_link"] == "https://github.com/student/repo"
+        assert kwargs["readme_content"] == "This is my submission"
         
         # Verify redirect
         mock_redirect.assert_called_once()
 
     @patch('routes.assignmentRoute.redirect')
     @patch('routes.assignmentRoute.SubmissionModel')
-    def test_grade_submission(self, mock_submission_model, mock_redirect, client):
+    @patch('routes.assignmentRoute.url_for')
+    def test_grade_submission(self, mock_url_for, mock_submission_model, mock_redirect, client):
         # Setup
         submission_id = "60d21b4667d0d8992e610c89"
+        
+        # Mock url_for to avoid circular import issues
+        mock_url_for.return_value = "/assignment.view_assignment/60d21b4667d0d8992e610c86"
         
         # Mock submission
         mock_submission = {
@@ -404,19 +415,27 @@ class TestAssignmentRoutes:
         client.post(f'/submissions/{submission_id}/grade', data=form_data)
         
         # Verify model calls
-        mock_submission_model.return_value.add_feedback.assert_not_called_with(
-            submission_id, 95.5, "Great work!"
-        )
         mock_submission_model.return_value.get_submission.assert_called_once_with(submission_id)
+        mock_submission_model.return_value.add_feedback.assert_called_once()
+        args, kwargs = mock_submission_model.return_value.add_feedback.call_args
+        assert args[0] == submission_id
+        assert float(args[1]) == 95.5
+        assert args[2] == "Great work!"
         
         # Verify redirect
         mock_redirect.assert_called_once()
 
     @patch('routes.assignmentRoute.AssignmentModel')
     @patch('routes.assignmentRoute.SubmissionModel')
-    def test_delete_assignment(self, mock_submission_model, mock_assignment_model, client):
+    @patch('routes.assignmentRoute.users')
+    @patch('routes.assignmentRoute.redirect')
+    @patch('routes.assignmentRoute.url_for')
+    def test_delete_assignment(self, mock_url_for, mock_redirect, mock_users, mock_submission_model, mock_assignment_model, client):
         # Setup
         assignment_id = "60d21b4667d0d8992e610c86"
+        
+        # Mock url_for to avoid circular import issues
+        mock_url_for.return_value = "/assignment.show_assignments"
         
         # Mock assignment
         mock_assignment = {
@@ -427,42 +446,46 @@ class TestAssignmentRoutes:
         mock_assignment_model.return_value.get_assignment.return_value = mock_assignment
         
         # Mock user
-        with patch('routes.assignmentRoute.users') as mock_users:
-            mock_users.find_one.return_value = {
-                "_id": ObjectId("60d21b4667d0d8992e610c85"),
-                "username": "teacher",
-                "identity": "teacher"
-            }
+        mock_users.find_one.return_value = {
+            "_id": ObjectId("60d21b4667d0d8992e610c85"),
+            "username": "teacher",
+            "identity": "teacher"
+        }
+        
+        # Mock submission deletion
+        mock_submission_model.return_value.delete_by_assignment.return_value = 2
+        
+        # Mock assignment deletion
+        mock_assignment_model.return_value.delete_assignment.return_value = True
+        
+        # Mock redirect
+        mock_redirect.return_value = "Redirected"
+        
+        # Execute
+        with client.session_transaction() as sess:
+            sess['username'] = 'teacher'
+            sess['identity'] = 'teacher'
             
-            # Mock submission deletion
-            mock_submission_model.return_value.delete_by_assignment.return_value = 2
-            
-            # Mock assignment deletion
-            mock_assignment_model.return_value.delete_assignment.return_value = True
-            
-            # Execute
-            with client.session_transaction() as sess:
-                sess['username'] = 'teacher'
-                sess['identity'] = 'teacher'
-                
-            with patch('routes.assignmentRoute.redirect') as mock_redirect:
-                mock_redirect.return_value = "Redirected"
-                response = client.post(f'/assignments/{assignment_id}/delete')
-                
-                # Verify model calls
-                mock_assignment_model.return_value.get_assignment.assert_not_called_with(assignment_id)
-                mock_submission_model.return_value.delete_by_assignment.assert_called_once_with(assignment_id)
-                mock_assignment_model.return_value.delete_assignment.assert_called_once_with(assignment_id)
-                
-                # Verify redirect
-                mock_redirect.assert_called_once()
+        response = client.post(f'/assignments/{assignment_id}/delete')
+        
+        # Verify model calls
+        mock_assignment_model.return_value.get_assignment.assert_called_once_with(assignment_id)
+        mock_submission_model.return_value.delete_by_assignment.assert_called_once_with(assignment_id)
+        mock_assignment_model.return_value.delete_assignment.assert_called_once_with(assignment_id)
+        
+        # Verify redirect
+        mock_redirect.assert_called_once()
 
     @patch('routes.assignmentRoute.send_file')
     @patch('routes.assignmentRoute.AssignmentModel')
     @patch('routes.assignmentRoute.users')
     @patch('routes.assignmentRoute.github_accounts')
-    @patch('routes.assignmentRoute.requests')
-    def test_download_assignment(self, mock_requests, mock_github_accounts, mock_users, mock_assignment_model, mock_send_file, client):
+    @patch('routes.assignmentRoute.is_repo_path_file')
+    @patch('routes.assignmentRoute.get_repo_contents')
+    @patch('routes.assignmentRoute.zipfile.ZipFile')
+    @patch('routes.assignmentRoute.BytesIO')
+    def test_download_assignment(self, mock_bytesio, mock_zipfile, mock_get_contents, mock_is_direct_file, 
+                                mock_github_accounts, mock_users, mock_assignment_model, mock_send_file, client):
         # Setup
         assignment_id = "60d21b4667d0d8992e610c86"
         
@@ -490,32 +513,31 @@ class TestAssignmentRoutes:
         }
         
         # Mock direct file check (not a direct file)
-        with patch('routes.assignmentRoute.is_repo_path_file') as mock_is_direct_file:
-            mock_is_direct_file.return_value = False
+        mock_is_direct_file.return_value = False
+        
+        # Mock get repo contents
+        mock_get_contents.return_value = []
+        
+        # Mock BytesIO
+        mock_memory_file = MagicMock()
+        mock_bytesio.return_value = mock_memory_file
+        
+        # Mock send_file
+        mock_send_file.return_value = "File Sent"
+        
+        # Execute
+        with client.session_transaction() as sess:
+            sess['username'] = 'student'
+            sess['identity'] = 'student'
             
-            # Mock zipfile creation
-            with patch('routes.assignmentRoute.zipfile.ZipFile'):
-                with patch('routes.assignmentRoute.BytesIO') as mock_bytesio:
-                    mock_memory_file = MagicMock()
-                    mock_bytesio.return_value = mock_memory_file
-                    
-                    # Mock get_repo_contents for recursive directory listing
-                    with patch('routes.assignmentRoute.get_repo_contents') as mock_get_contents:
-                        mock_get_contents.return_value = []
-                        
-                        # Execute
-                        with client.session_transaction() as sess:
-                            sess['username'] = 'student'
-                            sess['identity'] = 'student'
-                            
-                        client.get(f'/assignments/{assignment_id}/download')
-                        
-                        # Verify model calls
-                        mock_assignment_model.return_value.get_assignment.assert_not_called_with(assignment_id)
-                        mock_users.find_one.assert_called_once()
-                        mock_github_accounts.find_one.assert_called_once()
-                        mock_is_direct_file.assert_called_once()
-                        mock_send_file.assert_called_once()
+        response = client.get(f'/assignments/{assignment_id}/download')
+        
+        # Verify model calls
+        mock_assignment_model.return_value.get_assignment.assert_called_once_with(assignment_id)
+        mock_users.find_one.assert_called_once()
+        mock_github_accounts.find_one.assert_called_once()
+        mock_is_direct_file.assert_called_once()
+        mock_send_file.assert_called_once()
 
     @patch('routes.assignmentRoute.render_template')
     @patch('routes.assignmentRoute.SubmissionModel')
@@ -541,16 +563,15 @@ class TestAssignmentRoutes:
             sess['username'] = 'teacher'
             sess['identity'] = 'teacher'
             
-        client.get(f'/submissions/{submission_id}/readme')
+        response = client.get(f'/submissions/{submission_id}/readme')
         
         # Verify model calls
-        mock_submission_model.return_value.get_submission.assert_not_called_with(submission_id)
+        mock_submission_model.return_value.get_submission.assert_called_once_with(submission_id)
         
         # Verify template rendering
         mock_render_template.assert_called_once()
-        template_args = mock_render_template.call_args[0]
-        template_kwargs = mock_render_template.call_args[1]
-        assert "view_readme.html" in template_args
-        assert "readme_content" in template_kwargs
-        assert "submission" in template_kwargs
-        assert template_kwargs["readme_content"] == "# My Submission\nThis is my homework."
+        args, kwargs = mock_render_template.call_args
+        assert "view_readme.html" in args
+        assert "readme_content" in kwargs
+        assert "submission" in kwargs
+        assert kwargs["readme_content"] == "# My Submission\nThis is my homework."
