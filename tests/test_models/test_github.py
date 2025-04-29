@@ -1,7 +1,8 @@
 import pytest
 from bson.objectid import ObjectId
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from models.github import GitHubModel
+from flask import url_for
 
 
 class TestGitHubModel:
