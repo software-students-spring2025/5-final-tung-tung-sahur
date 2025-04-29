@@ -13,6 +13,9 @@
         padding: 45px;
         color: #e6e6e6;
         background-color: #1e1e1e;
+        border-radius: 0 0 6px 6px;
+        border: 1px solid #333;
+        border-top: none;
     }
 
     @media (max-width: 767px) {
@@ -37,6 +40,40 @@
     
     .file-actions {
         float: right;
+    }
+    
+    /* Code block styling */
+    .markdown-body pre {
+        background-color: #2d2d2d;
+        border-radius: 3px;
+    }
+    
+    .markdown-body code {
+        background-color: rgba(45, 45, 45, 0.5);
+        color: #e6e6e6;
+    }
+    
+    /* Table styling */
+    .markdown-body table {
+        border-collapse: collapse;
+        border-spacing: 0;
+        width: 100%;
+        overflow: auto;
+    }
+    
+    .markdown-body table th,
+    .markdown-body table td {
+        padding: 6px 13px;
+        border: 1px solid #444;
+    }
+    
+    .markdown-body table tr {
+        background-color: #1e1e1e;
+        border-top: 1px solid #444;
+    }
+    
+    .markdown-body table tr:nth-child(2n) {
+        background-color: #2a2a2a;
     }
 </style>
 {% endblock %}
@@ -85,13 +122,13 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/github-dark.min.css">
+<script src="{{ url_for('static', filename='js/marked.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/highlight.min.js') }}"></script>
+<script src="{{ url_for('static', filename='css/github-dark.min.css') }}"></script>
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Configure marked options
+        // Configure marked options with better support for GitHub-style markdown
         marked.setOptions({
             renderer: new marked.Renderer(),
             highlight: function(code, lang) {
@@ -100,21 +137,40 @@
             },
             langPrefix: 'hljs language-',
             pedantic: false,
-            gfm: true,
-            breaks: false,
-            sanitize: false,
-            smartypants: false,
+            gfm: true,          // GitHub Flavored Markdown
+            breaks: false,      // Only use line breaks when actually in the markdown
+            sanitize: false,    // Allow HTML in the markdown
+            smartLists: true,   // Use smarter list behavior
+            smartypants: false, // Don't use "smart" typographic punctuation
             xhtml: false
         });
 
-        // Get raw markdown content and render it
-        const markdownContent = `{{ content }}`;
+        // Get raw markdown content (fix the escaping issues)
+        const markdownContent = {{ content|tojson }};
         const markdownContainer = document.getElementById('markdown-container');
+        
+        // Render the markdown
         markdownContainer.innerHTML = marked.parse(markdownContent);
         
         // Apply syntax highlighting to code blocks
         document.querySelectorAll('pre code').forEach((block) => {
             hljs.highlightBlock(block);
+        });
+        
+        // Make external links open in new tabs
+        document.querySelectorAll('#markdown-container a').forEach((link) => {
+            // Only set target="_blank" for external links
+            if (link.host !== window.location.host) {
+                link.setAttribute('target', '_blank');
+                link.setAttribute('rel', 'noopener noreferrer');
+            }
+        });
+        
+        // Fix table display if needed
+        document.querySelectorAll('#markdown-container table').forEach((table) => {
+            if (!table.classList.contains('table')) {
+                table.classList.add('table', 'table-dark', 'table-striped');
+            }
         });
     });
 </script>
