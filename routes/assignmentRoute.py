@@ -9,6 +9,8 @@ from pymongo import MongoClient
 from models.assignment import AssignmentModel
 from models.submission import SubmissionModel
 from dotenv import load_dotenv
+# Import shared GitHub functions
+from .githubRoute import get_repo_contents, is_repo_path_file
 
 load_dotenv()
 
@@ -106,44 +108,33 @@ def list_repo_contents():
     # Get optional path parameter from request
     path = request.args.get("path", "")
     
-    # Build API URL
-    contents_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
-    
-    # Request GitHub API
-    headers = {
-        "Authorization": f"token {access_token}",
-        "Accept": "application/vnd.github+json"
-    }
-    
-    response = requests.get(contents_url, headers=headers)
-    
-    if response.status_code != 200:
-        return jsonify({"error": f"GitHub API error: {response.text}"}), 400
-    
-    # Parse response
-    items = response.json()
-    
-    # Handle single file response case
-    if not isinstance(items, list):
-        items = [items]
-    
-    # Format return data
-    contents = []
-    for item in items:
-        content_item = {
-            "name": item["name"],
-            "path": item["path"],
-            "type": item["type"],
-            "size": item.get("size", 0),
-            "download_url": item.get("download_url", ""),
-            "url": item["url"]
-        }
-        contents.append(content_item)
-    
-    # Sort: directories first, then by name
-    contents.sort(key=lambda x: (0 if x["type"] == "dir" else 1, x["name"]))
-    
-    return jsonify(contents)
+    try:
+        # Use the shared function to get repository contents
+        contents = get_repo_contents(owner, repo, access_token, path)
+        
+        # Handle single file response case
+        if not isinstance(contents, list):
+            contents = [contents]
+        
+        # Format return data
+        formatted_contents = []
+        for item in contents:
+            content_item = {
+                "name": item["name"],
+                "path": item["path"],
+                "type": item["type"],
+                "size": item.get("size", 0),
+                "download_url": item.get("download_url", ""),
+                "url": item["url"]
+            }
+            formatted_contents.append(content_item)
+        
+        # Sort: directories first, then by name
+        formatted_contents.sort(key=lambda x: (0 if x["type"] == "dir" else 1, x["name"]))
+        
+        return jsonify(formatted_contents)
+    except Exception as e:
+        return jsonify({"error": f"GitHub API error: {str(e)}"}), 400
 
 # Create new assignment (teachers only)
 @assignment_bp.route('/assignments/create', methods=["GET", "POST"])
@@ -373,93 +364,85 @@ def download_assignment(assignment_id):
         # Use the linked repository
         owner, repo = repo_path.split("/")
     
-    # For direct download of selected path
-    is_direct_file = False
+    # Get the name of the selected folder or file
     selected_folder_name = ""
+    if github_repo_path:
+        selected_folder_name = github_repo_path.split('/')[-1]
     
     # Check if selected path is a file
-    if github_repo_path:
-        # Get the name of the selected folder or file
-        selected_folder_name = github_repo_path.split('/')[-1]
+    try:
+        is_direct_file = is_repo_path_file(owner, repo, access_token, github_repo_path)
         
-        check_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{github_repo_path}"
-        check_headers = {
-            "Authorization": f"token {access_token}",
-            "Accept": "application/vnd.github+json"
-        }
-        
-        check_response = requests.get(check_url, headers=check_headers)
-        if check_response.status_code == 200:
-            content_info = check_response.json()
-            # Direct file download if it's a single file
-            is_direct_file = not isinstance(content_info, list) and content_info.get("type") == "file"
-            
-            # If it's a direct file, download and return it without ZIP
-            if is_direct_file:
-                download_url = content_info.get("download_url")
-                if download_url:
-                    file_response = requests.get(download_url, headers=check_headers)
-                    if file_response.status_code == 200:
-                        memory_file = BytesIO(file_response.content)
-                        memory_file.seek(0)
-                        
-                        # Get filename from path
-                        filename = github_repo_path.split('/')[-1]
-                        
-                        return send_file(
-                            memory_file,
-                            download_name=filename,
-                            as_attachment=True,
-                            mimetype='application/octet-stream'  # Generic binary
-                        )
+        # If it's a direct file, download and return it without ZIP
+        if is_direct_file:
+            # Get file content directly
+            content_info = get_repo_contents(owner, repo, access_token, github_repo_path)
+            download_url = content_info.get("download_url")
+            if download_url:
+                file_response = requests.get(download_url, headers={
+                    "Authorization": f"token {access_token}",
+                    "Accept": "application/vnd.github+json"
+                })
+                if file_response.status_code == 200:
+                    memory_file = BytesIO(file_response.content)
+                    memory_file.seek(0)
+                    
+                    # Get filename from path
+                    filename = github_repo_path.split('/')[-1]
+                    
+                    return send_file(
+                        memory_file,
+                        download_name=filename,
+                        as_attachment=True,
+                        mimetype='application/octet-stream'  # Generic binary
+                    )
+    except Exception as e:
+        # Log the error but continue with ZIP creation as fallback
+        print(f"Error checking if path is a file: {str(e)}")
     
     # Create a ZIP file in memory (for folders or multiple files)
     memory_file = BytesIO()
     with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
         # Recursively get repository contents
         def fetch_repo_contents(path):
-            contents_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
-            
-            headers = {
-                "Authorization": f"token {access_token}",
-                "Accept": "application/vnd.github+json"
-            }
+            try:
+                # Get contents using shared function
+                contents = get_repo_contents(owner, repo, access_token, path)
                 
-            contents_response = requests.get(contents_url, headers=headers)
-            if contents_response.status_code != 200:
-                return
+                # Handle single file response case
+                if not isinstance(contents, list):
+                    contents = [contents]
                 
-            contents = contents_response.json()
-            
-            # Handle single file or directory list
-            if not isinstance(contents, list):
-                contents = [contents]
-                
-            for item in contents:
-                item_path = item["path"]
-                item_type = item["type"]
-                
-                if item_type == "file":
-                    # Get file content
-                    download_url = item["download_url"]
-                    file_response = requests.get(download_url, headers=headers)
-                    if file_response.status_code == 200:
-                        # Build the path for the file in the ZIP
-                        if github_repo_path and item_path.startswith(github_repo_path):
-                            # Get the part after the selected path
-                            rel_path = item_path[len(github_repo_path):].lstrip('/')
-                            # Add the selected folder as the top level directory
-                            zip_path = os.path.join(selected_folder_name, rel_path)
-                        else:
-                            # This shouldn't normally happen but as a fallback
-                            zip_path = item_path
-                        
-                        # Add file to zip
-                        zf.writestr(zip_path, file_response.content)
-                
-                elif item_type == "dir":
-                    # Recursively process subdirectory
-                    fetch_repo_contents(item_path)
+                for item in contents:
+                    item_path = item["path"]
+                    item_type = item["type"]
+                    
+                    if item_type == "file":
+                        # Get file content
+                        download_url = item["download_url"]
+                        file_response = requests.get(download_url, headers={
+                            "Authorization": f"token {access_token}",
+                            "Accept": "application/vnd.github+json"
+                        })
+                        if file_response.status_code == 200:
+                            # Build the path for the file in the ZIP
+                            if github_repo_path and item_path.startswith(github_repo_path):
+                                # Get the part after the selected path
+                                rel_path = item_path[len(github_repo_path):].lstrip('/')
+                                # Add the selected folder as the top level directory
+                                zip_path = os.path.join(selected_folder_name, rel_path)
+                            else:
+                                # This shouldn't normally happen but as a fallback
+                                zip_path = item_path
+                            
+                            # Add file to zip
+                            zf.writestr(zip_path, file_response.content)
+                    
+                    elif item_type == "dir":
+                        # Recursively process subdirectory
+                        fetch_repo_contents(item_path)
+            except Exception as e:
+                print(f"Error fetching repository contents for {path}: {str(e)}")
         
         # Start recursive content retrieval
         fetch_repo_contents(github_repo_path)

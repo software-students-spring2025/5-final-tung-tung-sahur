@@ -1,6 +1,6 @@
 import os
 import requests
-from flask import Blueprint, redirect, request, session, url_for, render_template
+from flask import Blueprint, redirect, request, session, url_for, render_template, jsonify
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
@@ -163,31 +163,105 @@ def github_repo_unlink():
     
     return redirect(url_for('home'))
 
-def list_repo_files_recursive(owner, repo, token, path=""):
+# Function to get repository contents (file or directory)
+def get_repo_contents(owner, repo, token, path=""):
+    """Get repository contents (files or directories) from GitHub API"""
     url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
     headers = {
         "Authorization": f"token {token}",
         "Accept": "application/vnd.github+json"
     }
     response = requests.get(url, headers=headers)
+    
     if response.status_code != 200:
         raise Exception(f"GitHub API error: {response.text}")
-    items = response.json()
+    
+    return response.json()
 
-    all_files = []
+# Function to recursively get all files in a repository
+def list_repo_files_recursive(owner, repo, token, path=""):
+    """Recursively list all files in a repository or subdirectory"""
+    try:
+        items = get_repo_contents(owner, repo, token, path)
+        
+        # Handle single file response
+        if not isinstance(items, list):
+            items = [items]
+        
+        all_files = []
+        
+        for item in items:
+            if item["type"] == "file":
+                all_files.append({
+                    "name": item["name"],
+                    "path": item["path"],
+                    "download_url": item["download_url"]
+                })
+            elif item["type"] == "dir":
+                all_files.extend(list_repo_files_recursive(owner, repo, token, item["path"]))
+        
+        return all_files
+    except Exception as e:
+        print(f"Error listing repository files: {str(e)}")
+        return []
 
-    for item in items:
-        if item["type"] == "file":
-            all_files.append({
+# Check if a repository path is a file
+def is_repo_path_file(owner, repo, token, path):
+    """Check if the specified path in repository is a file"""
+    try:
+        content = get_repo_contents(owner, repo, token, path)
+        # If it's a single item (not a list), check if it's a file
+        return not isinstance(content, list) and content.get("type") == "file"
+    except Exception:
+        return False
+
+# Route to get formatted repository contents (files and directories)
+@github_bp.route('/github/repo/contents')
+def get_repository_contents():
+    """API to get repository contents for a specific path"""
+    current_username = session.get("username")
+    if not current_username:
+        return jsonify({"error": "Not logged in"}), 403
+    
+    github_account = github_accounts.find_one({"username": current_username})
+    if not github_account or not github_account.get("repo"):
+        return jsonify({"error": "No GitHub repository linked"}), 400
+    
+    access_token = github_account["access_token"]
+    repo_path = github_account["repo"]
+    
+    # Parse repository information
+    owner, repo = repo_path.split("/")
+    
+    # Get path parameter
+    path = request.args.get("path", "")
+    
+    try:
+        contents = get_repo_contents(owner, repo, access_token, path)
+        
+        # Format the response
+        if not isinstance(contents, list):
+            contents = [contents]
+        
+        formatted_contents = []
+        for item in contents:
+            formatted_contents.append({
                 "name": item["name"],
                 "path": item["path"],
-                "download_url": item["download_url"]
+                "type": item["type"],
+                "size": item.get("size", 0),
+                "download_url": item.get("download_url", ""),
+                "url": item["url"]
             })
-        elif item["type"] == "dir":
-            all_files.extend(list_repo_files_recursive(owner, repo, token, item["path"]))
-    
-    return all_files
+        
+        # Sort: directories first, then by name
+        formatted_contents.sort(key=lambda x: (0 if x["type"] == "dir" else 1, x["name"]))
+        
+        return jsonify(formatted_contents)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
+# Route to list all files in a repository (for legacy compatibility)
 @github_bp.route('/github/repo/files')
 def github_repo_files():
     current_username = session.get("username")
@@ -214,4 +288,3 @@ def github_repo_files():
                            files=files,
                            username=session["username"],
                            identity=session.get("identity", "student"))
-
