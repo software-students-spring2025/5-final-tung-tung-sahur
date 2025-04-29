@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Preview: {{ file_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .pdf-container {
+        width: 100%;
+        height: 800px;
+        border: 1px solid #333;
+        border-radius: 0 0 6px 6px;
+    }
+    
+    .file-header {
+        padding: 10px 16px;
+        background-color: #2a2a2a;
+        border-radius: 6px 6px 0 0;
+        border: 1px solid #333;
+        border-bottom: none;
+    }
+    
+    .file-actions {
+        float: right;
+    }
+    
+    @media (max-width: 767px) {
+        .pdf-container {
+            height: 500px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('home') }}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('assignment.show_assignments') }}">Assignments</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('assignment.view_assignment', assignment_id=assignment._id) }}">{{ assignment.title }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('assignment.browse_assignment_files', assignment_id=assignment._id) }}">Files</a></li>
+            <li class="breadcrumb-item active">{{ file_name }}</li>
+        </ol>
+    </nav>
+
+    <div class="file-header d-flex justify-content-between align-items-center">
+        <div class="file-info">
+            <i class="fas fa-file-pdf mr-2"></i> <strong>{{ file_name }}</strong>
+        </div>
+        <div class="file-actions">
+            <a href="{{ url_for('assignment.download_assignment', assignment_id=assignment._id) }}" class="btn btn-sm btn-outline-primary">
+                <i class="fas fa-download"></i> Download
+            </a>
+        </div>
+    </div>
+
+    <div class="pdf-container">
+        <object data="{{ pdf_data }}" type="application/pdf" width="100%" height="100%">
+            <div class="alert alert-warning text-center p-5">
+                <p>It appears your browser doesn't support embedded PDFs.</p>
+                <p>You can <a href="{{ url_for('assignment.download_assignment', assignment_id=assignment._id) }}">download the PDF</a> instead.</p>
+            </div>
+        </object>
+    </div>
+</div>
+{% endblock %}

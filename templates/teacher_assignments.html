@@ -32,9 +32,9 @@
                         {% endif %}
                     </a>
                     {% if assignment.github_repo_url %}
-                    <a href="{{ url_for('assignment.download_assignment', assignment_id=assignment._id) }}"
-                        class="btn btn-outline-secondary">
-                        <i class="fas fa-download"></i> Download Assignment
+                    <a href="{{ url_for('assignment.browse_assignment_files', assignment_id=assignment._id) }}"
+                        class="btn btn-outline-info ml-2">
+                        <i class="fas fa-folder-open"></i> Browse Files
                     </a>
                     {% endif %}
                 </div>
