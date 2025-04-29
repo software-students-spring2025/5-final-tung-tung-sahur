@@ -17,7 +17,8 @@ class AssignmentModel:
             "due_date": due_date,
             "github_repo_url": github_repo_url,
             "github_repo_path": github_repo_path,  # Added new field for repository path
-            "created_at": datetime.now()
+            "created_at": datetime.now(),
+            "reminder_sent"   : False 
         }
         result = self.collection.insert_one(assignment)
         return str(result.inserted_id)
