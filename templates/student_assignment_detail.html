@@ -30,7 +30,39 @@
                 </a>
             </div>
             {% endif %}
-
+            {% if assignment.github_repo_url %}
+            <div class="alert alert-info">
+                <h5>Assignment Files</h5>
+                <p>The instructor has provided files for this assignment. You can preview or download them:</p>
+                <div class="btn-group" role="group">
+                    <a href="{{ url_for('assignment.browse_assignment_files', assignment_id=assignment._id) }}" class="btn btn-primary">
+                        <i class="fas fa-folder-open"></i> Browse Files
+                    </a>
+                    <a href="{{ url_for('assignment.download_assignment', assignment_id=assignment._id) }}" class="btn btn-outline-primary">
+                        <i class="fas fa-download"></i> Download All Files
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+            
+            # Modifications to teacher_assignment_detail.html
+            
+            # Add this code in the first card's card-body, after the description div:
+            
+            {% if assignment.github_repo_url %}
+            <div class="alert alert-info">
+                <h5>Assignment Files</h5>
+                <p>You've linked files from your GitHub repository. Students can preview or download these files.</p>
+                <div class="btn-group" role="group">
+                    <a href="{{ url_for('assignment.browse_assignment_files', assignment_id=assignment._id) }}" class="btn btn-primary">
+                        <i class="fas fa-folder-open"></i> Browse Files
+                    </a>
+                    <a href="{{ url_for('assignment.download_assignment', assignment_id=assignment._id) }}" class="btn btn-outline-primary">
+                        <i class="fas fa-download"></i> Download Files
+                    </a>
+                </div>
+            </div>
+            {% endif %}
             <div class="mt-4">
                 <h5>Submission status</h5>
                 {% if submission %}
