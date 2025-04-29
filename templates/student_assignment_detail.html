@@ -69,17 +69,12 @@
                     </div>
                     <div class="card-body">
                         <div class="alert alert-info">
-                            <p><i class="fas fa-info-circle mr-2"></i> <strong>Two ways to submit:</strong></p>
-                            <ol>
-                                <li>Browse your GitHub repository and select a markdown file directly</li>
-                                <li>Provide a GitHub link and README content manually</li>
-                            </ol>
+                            <p><i class="fas fa-info-circle mr-2"></i> <strong>How to submit:</strong></p>
+                            <p>Browse your repository to select a markdown file for submission.</p>
                         </div>
                         
                         {% if github_info and github_info.repo %}
                             <div class="card-text mb-4">
-                                <h6>Option 1: Select a Markdown file from your repository</h6>
-                                <p>Browse your repository to select a markdown file for submission.</p>
                                 <a href="{{ url_for('assignment.select_submission_file', assignment_id=assignment._id) }}" class="btn btn-primary">
                                     <i class="fas fa-folder-open mr-1"></i> Browse My Repository
                                 </a>
@@ -97,22 +92,15 @@
                         {% endif %}
                         
                         <hr>
-                        
-                        <h6>Option 2: Enter details manually</h6>
                         <form method="POST" action="{{ url_for('assignment.submit_assignment', assignment_id=assignment._id) }}">
-                            <div class="form-group">
-                                <label for="github_link">GitHub repository link</label>
-                                <input type="text" class="form-control" id="github_link" name="github_link" 
-                                    value="{% if submission %}{{ submission.github_link }}{% elif github_info and github_info.repo_url %}{{ github_info.repo_url }}{% endif %}" required>
-                                <small class="form-text text-muted">Link to your GitHub repository or specific file</small>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="readme_content">README content</label>
-                                <textarea class="form-control" id="readme_content" name="readme_content" rows="10">{% if submission %}{{ submission.readme_content }}{% endif %}</textarea>
-                                <small class="form-text text-muted">Please paste your markdown content here</small>
-                            </div>
-                            
+                            {# Keep hidden github_link input #}
+                            {% if github_info and github_info.repo_url %}
+                            <input type="hidden" name="github_link" value="{{ github_info.repo_url }}">
+                            {% endif %}
+                            {# Pass existing readme_content as hidden input to support rendering #}
+                            {% if submission and submission.readme_content %}
+                            <input type="hidden" name="readme_content" value="{{ submission.readme_content|e }}">
+                            {% endif %}
                             <button type="submit" class="btn btn-primary">
                                 {% if submission %}Update submission{% else %}Submit assignment{% endif %}
                             </button>

@@ -136,21 +136,16 @@
 
             <div class="mt-4">
                 {% if identity == 'teacher' %}
-                <a href="{{ submission.github_link }}" target="_blank" class="btn btn-primary">
-                    <i class="fab fa-github"></i> View GitHub Repository
-                </a>
-                <button type="button" class="btn btn-info" data-toggle="modal" data-target="#gradeModal">
-                    {% if submission.status == 'graded' %}Modify Grade{% else %}Grade{% endif %}
-                </button>
-                {% else %}
-                <a href="{{ url_for('assignment.view_assignment', assignment_id=submission.assignment_id) }}"
-                    class="btn btn-primary">
-                    Assignment Details
-                </a>
+                    <a href="{{ submission.github_link }}" target="_blank" class="btn btn-primary">
+                        <i class="fab fa-github"></i> View GitHub Repository
+                    </a>
+                    <button type="button" class="btn btn-info" data-toggle="modal" data-target="#gradeModal">
+                        {% if submission.status == 'graded' %}Modify Grade{% else %}Grade{% endif %}
+                    </button>
                 {% endif %}
                 <a href="{{ url_for('assignment.view_assignment', assignment_id=submission.assignment_id) }}"
-                    class="btn btn-secondary">
-                    Assignment Details
+                   class="btn btn-secondary">
+                   <i class="fas fa-arrow-left mr-1"></i> Back to Assignment
                 </a>
             </div>
 
