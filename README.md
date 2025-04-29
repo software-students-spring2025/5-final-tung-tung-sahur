@@ -31,6 +31,9 @@ Our design inspiration comes from our experience with NYU Brightspace. We had in
 Our system has mongodb and web application (2 systems) running in docker containers. Here is the [link](https://hub.docker.com/r/suqichen/darkspace) to our customized system images on Docker Hub.
 
 ### Run Our Application
+
+Here are the steps to run our application locally using Docker. 
+
 1. Clone the repository:
    ```bash
    git clone https://github.com/software-students-spring2025/5-final-tung-tung-sahur
@@ -64,4 +67,9 @@ Our system has mongodb and web application (2 systems) running in docker contain
     docker-compose down
     ```
     Using whichever command is available on your system.
-
+    
+### Environment Variables
+Please see `.env.example` for all the environment variables you need to set up. Apart from the flask and mongodb variables, you need to set up the following variables:
+- You need to apply for an OAuth application on GitHub to get the `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`. 
+- `Email_password` is used for email notifications.
+- `TEACHER_INVITE_CODE` is used for the teacher registration. You can set it to any string you want.
