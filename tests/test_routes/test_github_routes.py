@@ -9,6 +9,9 @@ import requests
 def app():
     app = Flask(__name__)
     app.secret_key = "secret"
+    @app.route('/')
+    def home():
+        return "HOME"
     app.register_blueprint(githubRoute.github_bp)
     app.config['TESTING'] = True
     return app
@@ -111,8 +114,8 @@ def test_repo_link_no_account(mock_accounts, client):
     resp = client.get('/github/repo/link')
     assert resp.status_code == 404
 
-@patch('routes.githubRoute.github_accounts')
 @patch('routes.githubRoute.requests.get')
+@patch('routes.githubRoute.github_accounts')
 def test_repo_link_no_repos(mock_accounts, mock_get, client):
     with client.session_transaction() as sess:
         sess['username'] = 'tim'
@@ -120,6 +123,7 @@ def test_repo_link_no_repos(mock_accounts, mock_get, client):
     mock_get.return_value.json.return_value = []
     resp = client.get('/github/repo/link')
     assert resp.status_code == 404
+    assert b"No repositories found" in resp.data
 
 @patch('routes.githubRoute.github_accounts')
 @patch('routes.githubRoute.requests.get')
@@ -151,7 +155,10 @@ def test_repo_link_post_success(mock_accounts, client):
         sess['username'] = 'u'
     resp = client.post('/github/repo/link', data={'repo': 'o/repo'})
     assert resp.status_code == 302
-    mock_accounts.update_one.assert_called_once()
+    mock_accounts.update_one.assert_called_once_with(
+        {"username": "u"},
+        {"$set": {"repo": "o/repo", "repo_url": "https://github.com/o/repo"}}
+    )
 
 def test_repo_unlink_not_logged(client):
     resp = client.get('/github/repo/unlink')
@@ -168,11 +175,13 @@ def test_repo_unlink_no_account(mock_accounts, client):
 @patch('routes.githubRoute.github_accounts')
 def test_repo_unlink_success(mock_accounts, client):
     with client.session_transaction() as sess:
-        sess['username'] = 'u'
-    mock_accounts.find_one.return_value = {'username': 'u'}
+         sess['username'] = 'sam'
     resp = client.get('/github/repo/unlink')
     assert resp.status_code == 302
-    mock_accounts.update_one.assert_called_once()
+    mock_accounts.update_one.assert_called_once_with(
+        {"username": "sam"},
+        {"$set": {"repo": None, "repo_url": None}}
+    )
 
 def test_get_repo_contents_success(monkeypatch):
     class R:
@@ -224,15 +233,18 @@ def test_get_repository_contents_no_repo(mock_acc, client):
     resp = client.get('/github/repo/contents')
     assert resp.status_code == 400
 
-@patch('routes.githubRoute.github_accounts')
 @patch('routes.githubRoute.get_repo_contents')
-def test_get_repository_contents_success(mock_get, mock_acc, client):
+@patch('routes.githubRoute.github_accounts')
+def test_get_repository_contents_success(mock_acc, mock_get, client):
     with client.session_transaction() as sess:
         sess['username'] = 'u'
     mock_acc.find_one.return_value = {'repo':'o/r','access_token':'t'}
     mock_get.return_value = [{'name':'n','path':'p','type':'file'}]
     resp = client.get('/github/repo/contents')
     assert resp.status_code == 200
+    data = resp.get_json()
+    assert isinstance(data, list)
+    assert data[0]['name'] == 'n'
 
 @patch('routes.githubRoute.github_accounts')
 @patch('routes.githubRoute.list_repo_files_recursive')
